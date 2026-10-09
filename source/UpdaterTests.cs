@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Reflection;
+using System.Linq;
 
 namespace Patchwork
 {
@@ -72,6 +73,30 @@ namespace Patchwork
             });
             open((window, controller) => Assert(((ComboBox)window.FindName("AppPicker")).Items.Count == 1));
             Assert(File.Exists(Path.Combine(data, "recipes", "sandbox-v1.json")));
+        }
+        public static void VersionMetadata(string root)
+        {
+            string data = Path.Combine(root, "versions"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+            var raw = Json.Parse(TestFixtures.DemoRecipe()); raw["packVersion"] = "1.1.0"; raw["minimumPatcherVersion"] = "0.4.0";
+            Json.Object(Json.Array(raw, "patches")[0])["version"] = "1.0.0";
+            string content = Json.Pretty(raw); var bundle = PatchBundle.Parse(content);
+            Assert(bundle.PackVersion == "1.1.0" && bundle.Patches[0].Version == "1.0.0" && bundle.Patches[1].Version == "1.1.0");
+            var journal = engine.Apply(engine.Preview(bundle, target, new[] { bundle.Patches[0].Id }));
+            Assert(engine.History().Single().PackVersion == "1.1.0" && engine.History().Single().PatchNames.Single().Contains("v1.0.0") && engine.History().Single().BundleSha256 == PatchEngine.Hash(Encoding.UTF8.GetBytes(content)));
+            raw["packVersion"] = "1.2.0"; bundle = PatchBundle.Parse(Json.Pretty(raw)); Assert(engine.History().Single().PackVersion == "1.1.0"); engine.Restore(journal);
+            foreach (string invalid in new[] { "v1.0.0", "1.0", "1.0.0\n", "01.0.0", "<bad>" }) { raw["packVersion"] = invalid; Reject(() => PatchBundle.Parse(Json.Pretty(raw))); }
+            raw["packVersion"] = "1.1.0"; raw["minimumPatcherVersion"] = "99.0.0"; Reject(() => PatchBundle.Parse(Json.Pretty(raw)));
+            var legacy = PatchBundle.Parse(TestFixtures.DemoRecipe()); Assert(legacy.PackVersion == "Unversioned" && legacy.Patches.All(x => x.Version == "Unversioned"));
+            string fixture = Path.Combine(data, "versioned.json"); File.WriteAllText(fixture, content);
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Patchwork.MainWindow.xaml"))
+            {
+                var window = (Window)XamlReader.Load(stream); var controller = new MainController(window, Path.Combine(data, "ui"));
+                try {
+                    controller.ImportFile(fixture); Assert(((TextBlock)window.FindName("AppMeta")).Text.Contains("Patch pack v1.1.0"));
+                    Assert(((ComboBox)window.FindName("AppPicker")).Items[0].ToString().Contains("pack v1.1.0"));
+                    controller.ImportFile(fixture); Assert(((ComboBox)window.FindName("AppPicker")).Items.Count == 1);
+                } finally { window.Close(); }
+            }
         }
     }
 }

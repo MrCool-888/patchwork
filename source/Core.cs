@@ -81,10 +81,13 @@ namespace Patchwork
         public List<string> Path = new List<string>();
         public object Expected, Value;
         public int Count;
+        public string ReplacementMethod, SourceMethod, SetterMethod;
+        public List<string> Condition = new List<string>();
+        public List<Dictionary<string, string>> Mappings = new List<Dictionary<string, string>>();
     }
     public class PatchDefinition
     {
-        public string Id, Name, Description, Category, Status;
+        public string Id, Name, Description, Category, Status, Version;
         public List<string> Dependencies = new List<string>();
         public List<string> Conflicts = new List<string>();
         public List<PatchOperation> Operations = new List<PatchOperation>();
@@ -92,7 +95,7 @@ namespace Patchwork
     }
     public class PatchBundle
     {
-        public string Id, AppId, AppName, AppVersion, Author, Source, VersionFile, VersionSha256;
+        public string Id, AppId, AppName, AppVersion, Author, Source, VersionFile, VersionSha256, PackVersion, MinimumPatcherVersion;
         [ScriptIgnore] public string Content;
         public List<PatchDefinition> Patches = new List<PatchDefinition>();
         public static PatchBundle Parse(string content)
@@ -105,15 +108,17 @@ namespace Patchwork
                 Id = Json.String(root, "id"), AppId = Json.String(root, "appId"),
                 AppName = Json.String(root, "appName"), AppVersion = Json.String(root, "appVersion"),
                 Author = Json.String(root, "author", "Unknown author"), Source = Json.String(root, "source", "Local recipe"),
-                VersionFile = Json.String(root, "versionFile"), VersionSha256 = Json.String(root, "versionSha256"), Content = content
+                VersionFile = Json.String(root, "versionFile"), VersionSha256 = Json.String(root, "versionSha256"), Content = content,
+                PackVersion = ReadVersion(root, "packVersion", "Unversioned"), MinimumPatcherVersion = ReadVersion(root, "minimumPatcherVersion", "0.3.0")
             };
+            if (System.Version.Parse(bundle.MinimumPatcherVersion) > System.Reflection.Assembly.GetExecutingAssembly().GetName().Version) throw new InvalidDataException("This patch pack requires Patchwork " + bundle.MinimumPatcherVersion + " or newer. Update the patcher first.");
             ValidateId(bundle.Id); ValidateId(bundle.AppId); ValidateRelative(bundle.VersionFile); ValidateHash(bundle.VersionSha256);
             if (bundle.AppId == "proton-vpn" && bundle.VersionFile != "ProtonVPN.Client.exe") throw new InvalidDataException("Proton bundles must fingerprint ProtonVPN.Client.exe.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (object entry in Json.Array(root, "patches"))
             {
                 var raw = Json.Object(entry);
-                var patch = new PatchDefinition { Id = Json.String(raw, "id"), Name = Json.String(raw, "name"), Description = Json.String(raw, "description"), Category = Json.String(raw, "category", "General"), Status = Json.String(raw, "status", "ready") };
+                var patch = new PatchDefinition { Id = Json.String(raw, "id"), Name = Json.String(raw, "name"), Description = Json.String(raw, "description"), Category = Json.String(raw, "category", "General"), Status = Json.String(raw, "status", "ready"), Version = ReadVersion(raw, "version", bundle.PackVersion) };
                 if (patch.Status != "ready" && patch.Status != "planned") throw new InvalidDataException("Unknown patch status.");
                 ValidateId(patch.Id);
                 if (!ids.Add(patch.Id)) throw new InvalidDataException("Duplicate patch ID: " + patch.Id);
@@ -158,6 +163,13 @@ namespace Patchwork
             return bundle;
         }
         static bool Scalar(object value) { return value == null || value is string || value is bool || value is int || value is long || value is decimal || value is double; }
+        static string ReadVersion(Dictionary<string, object> raw, string key, string fallback)
+        {
+            if (!raw.ContainsKey(key)) return fallback;
+            string value = Json.String(raw, key); System.Version parsed;
+            if (!System.Text.RegularExpressions.Regex.IsMatch(value, "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\z") || !System.Version.TryParse(value, out parsed)) throw new InvalidDataException("Use a three-part version number in " + key + ", such as 1.1.0.");
+            return value;
+        }
         static List<string> Strings(List<object> input)
         {
             if (input.Any(x => !(x is string))) throw new InvalidDataException("Expected an array of strings.");
@@ -193,7 +205,7 @@ namespace Patchwork
     }
     public class PatchPlan
     {
-        public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256;
+        public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256, PackVersion, BundleSha256;
         public DateTime CreatedUtc;
         public List<string> PatchIds = new List<string>();
         public List<string> PatchNames = new List<string>();
@@ -212,6 +224,8 @@ namespace Patchwork
         public string AppName { get; set; }
         public string AppVersion { get; set; }
         public string BundleId { get; set; }
+        public string PackVersion { get; set; }
+        public string BundleSha256 { get; set; }
         public string TargetRoot { get; set; }
         public string CreatedUtc { get; set; }
         public string State { get; set; }
@@ -288,7 +302,7 @@ namespace Patchwork
                 }
                 string versionPath = Resolve(root, bundle.VersionFile);
                 if (!Hash(Read(versionPath)).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Target fingerprint does not match " + bundle.AppName + " " + bundle.AppVersion + ".");
-                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name).ToList() };
+                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, PackVersion = bundle.PackVersion, BundleSha256 = Hash(Encoding.UTF8.GetBytes(bundle.Content)), VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name + (x.Version == "Unversioned" ? " (unversioned)" : " (v" + x.Version + ")")).ToList() };
                 var files = new Dictionary<string, FileChange>(StringComparer.OrdinalIgnoreCase);
                 var jsonTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var patch in selected)
@@ -364,7 +378,7 @@ namespace Patchwork
                     if (Hash(Read(Resolve(plan.TargetRoot, change.RelativePath))) != change.BeforeHash) throw new InvalidOperationException("A file changed after preview: " + change.RelativePath + ". Preview again.");
                 var journal = new Journal {
                     Id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8), AppName = plan.AppName, AppVersion = plan.AppVersion,
-                    BundleId = plan.BundleId, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), Files = new List<JournalFile>()
+                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), Files = new List<JournalFile>()
                 };
                 journal.DirectoryPath = Path.Combine(DataRoot, "history", journal.Id);
                 Directory.CreateDirectory(journal.DirectoryPath);

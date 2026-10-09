@@ -11,13 +11,14 @@ namespace Patchwork
     // Patch files describe a small set of IL edits; they cannot supply code, assemblies or commands.
     public static class ManagedPatches
     {
-        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument" };
+        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter" };
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
             if (!Kinds.Contains(op.Kind)) throw new InvalidDataException("Unknown operation: " + op.Kind);
             if (!op.File.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Managed operations require a .dll file.");
             op.Method = Json.String(raw, "method");
             if (String.IsNullOrWhiteSpace(op.Method) || op.Method.Length > 2048) throw new InvalidDataException("A complete managed method signature is required.");
+            if (ManagedSelectors.Parse(op, raw)) return;
             if (op.Kind == "managedReturn")
             {
                 op.ReturnType = Json.String(raw, "returnType");
@@ -77,9 +78,9 @@ namespace Patchwork
                     if (matches.Count != 1) throw new InvalidDataException("Managed method signature did not match exactly: " + op.Method);
                     var method = matches[0];
                     if (!method.HasBody) throw new InvalidDataException("Cannot edit a method without IL: " + op.Method);
-                    bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument";
+                    bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument" || op.Kind == "managedOverrideBooleanSetter";
                     string key = isOverride ? op.Type + "::" + method.Name : method.FullName;
-                    if (op.Kind == "managedReturn" || isOverride)
+                    if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || isOverride)
                     {
                         if (!returns.Add(key) || edits.Contains(key)) throw new InvalidOperationException("Conflicting managed method edits: " + key);
                     }
@@ -89,7 +90,8 @@ namespace Patchwork
                         edits.Add(key);
                     }
                     if (!touched.Contains(method) && !isOverride) { before.AppendLine(Describe(method)); touched.Add(method); }
-                    if (op.Kind == "managedReturn") SetReturn(method, op);
+                    if (ManagedSelectors.Transform(module, method, op, touched, before)) { }
+                    else if (op.Kind == "managedReturn") SetReturn(method, op);
                     else if (isOverride)
                     {
                         var type = all.SingleOrDefault(x => x.FullName == op.Type);

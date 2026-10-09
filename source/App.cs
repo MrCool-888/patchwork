@@ -197,7 +197,7 @@ namespace Patchwork
         {
             changingPicker = true;
             var picker = Control<ComboBox>("AppPicker"); picker.Items.Clear();
-            foreach (var bundle in bundles) picker.Items.Add(bundle.AppName + (bundle.AppId == "patchwork-sandbox" ? "" : " · " + bundle.AppVersion));
+            foreach (var bundle in bundles) picker.Items.Add(bundle.AppName + " · " + bundle.AppVersion + " · pack " + VersionLabel(bundle.PackVersion));
             changingPicker = false;
         }
         void SetBundle(int index)
@@ -221,12 +221,12 @@ namespace Patchwork
             Control<Border>("AppIconBorder").Background = Color(proton ? "#36284E" : "#1B3936");
             Control<TextBlock>("AppIcon").Foreground = Color(proton ? "#C4AAFF" : "#89DDC4");
             bool available = current.Patches.Any(x => x.Ready);
-            Control<TextBlock>("AppMeta").Text = "v" + current.AppVersion + " · " + current.Patches.Count(x => x.Ready) + " available patches · external patch file · unsigned";
+            Control<TextBlock>("AppMeta").Text = "App " + current.AppVersion + " · Patch pack " + VersionLabel(current.PackVersion) + " · " + current.Patches.Count(x => x.Ready) + " available";
             Control<TextBlock>("AppBadge").Text = !available ? "PLANNED ONLY" : proton ? "EXPERIMENTAL" : "LOCAL PATCH FILE";
             Control<TextBlock>("AppBadge").Foreground = Color(proton ? "#E9C985" : "#8DE2C5");
             Control<Border>("AppBadgeBorder").Background = Color(proton ? "#322A1C" : "#18322E");
             Control<TextBlock>("SessionTitle").Text = current.AppName;
-            Control<TextBlock>("SessionDescription").Text = "Local patch file by " + current.Author + " for version " + current.AppVersion + ".";
+            Control<TextBlock>("SessionDescription").Text = "Patch pack " + VersionLabel(current.PackVersion) + " by " + current.Author + " · Requires app " + current.AppVersion + ".";
             Control<TextBlock>("SessionNote").Text = proton ? "Close Proton's desktop app before applying. Client patches do not change server account permissions. Read each patch's scope." : "Preview exact file changes before applying. Originals are backed up automatically.";
             if (!targets.ContainsKey(current.Id)) targets[current.Id] = "";
             if (proton && String.IsNullOrEmpty(targets[current.Id])) DetectProton();
@@ -251,7 +251,7 @@ namespace Patchwork
                 grid.Children.Add(check);
                 var content = new StackPanel(); Grid.SetColumn(content, 1);
                 var headline = new Grid(); headline.ColumnDefinitions.Add(new ColumnDefinition()); headline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var title = Text(patch.Name, 14, "#E8EDF6"); title.FontWeight = FontWeights.SemiBold; title.Margin = new Thickness(0, 0, 8, 0); headline.Children.Add(title);
+                var title = Text(patch.Name + "  ·  " + (patch.Ready ? VersionLabel(patch.Version) : "Planned"), 14, "#E8EDF6"); title.FontWeight = FontWeights.SemiBold; title.Margin = new Thickness(0, 0, 8, 0); headline.Children.Add(title);
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
@@ -330,7 +330,7 @@ namespace Patchwork
             string recipes = Path.Combine(engine.DataRoot, "recipes"); Directory.CreateDirectory(recipes);
             File.WriteAllText(Path.Combine(recipes, bundle.Id + ".json"), content, new UTF8Encoding(false));
             AddBundle(bundle); RefreshPicker(); SetBundle(bundles.FindIndex(x => x.Id == bundle.Id));
-            Notify("Added " + bundle.Patches.Count(x => x.Ready) + " available patches by " + bundle.Author + ". Target files will be checked before applying.");
+            Notify("Imported patch pack " + VersionLabel(bundle.PackVersion) + " · " + bundle.Patches.Count(x => x.Ready) + " available patches. Preview before applying.");
         }
         void BuildPreview()
         {
@@ -341,7 +341,7 @@ namespace Patchwork
                 var picker = Control<ComboBox>("PreviewFilePicker"); picker.Items.Clear();
                 foreach (var file in preview.Files) picker.Items.Add(file.RelativePath);
                 picker.SelectedIndex = 0;
-                Control<TextBlock>("PreviewSummary").Text = preview.PatchNames.Count + " patch(es) · " + preview.Files.Count + " file(s) · " + preview.AppName + " " + preview.AppVersion + "\n" + preview.TargetRoot;
+                Control<TextBlock>("PreviewSummary").Text = preview.PatchNames.Count + " patch(es) · " + preview.Files.Count + " file(s) · " + preview.AppName + " " + preview.AppVersion + " · Pack " + VersionLabel(preview.PackVersion) + "\n" + preview.TargetRoot;
                 Control<Button>("ApplyButton").IsEnabled = true;
                 Control<Button>("ApplyButton").Content = Worker.Protected(preview.TargetRoot) ? "Apply · administrator" : "Apply patches";
                 ShowPage("preview"); Notify("Preview verified. Review the original and patched content, then apply.");
@@ -401,7 +401,7 @@ namespace Patchwork
                 var title = Text(journal.AppName + "  ·  " + journal.AppVersion, 18, "#E8EDF6"); title.FontWeight = FontWeights.SemiBold; header.Children.Add(title);
                 var badge = Text(recover ? "RECOVERY NEEDED" : journal.State.ToUpperInvariant(), 10, recover ? "#E9C985" : restored ? "#929DB1" : "#85DCC0"); badge.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(badge, 1); header.Children.Add(badge); stack.Children.Add(header);
                 DateTime created; string date = DateTime.TryParse(journal.CreatedUtc, out created) ? created.ToLocalTime().ToString("MMM d, yyyy · h:mm tt") : journal.CreatedUtc;
-                var meta = Text(date + "  /  " + journal.Files.Count + " file(s)", 11, "#78869E"); meta.Margin = new Thickness(0, 7, 0, 15); stack.Children.Add(meta);
+                var meta = Text("Patch pack " + VersionLabel(journal.PackVersion) + "  /  " + date + "  /  " + journal.Files.Count + " file(s)", 11, "#78869E"); meta.Margin = new Thickness(0, 7, 0, 15); stack.Children.Add(meta);
                 stack.Children.Add(Text(String.Join("  ·  ", journal.PatchNames), 13, "#BEABD8"));
                 var target = Text(journal.TargetRoot, 11, "#929DB1"); target.Margin = new Thickness(0, 10, 0, 0); stack.Children.Add(target);
                 if (!String.IsNullOrWhiteSpace(journal.Error)) { var error = Text(journal.Error, 12, "#E9C985"); error.Margin = new Thickness(0, 12, 0, 0); stack.Children.Add(error); }
@@ -481,6 +481,7 @@ namespace Patchwork
             }
             catch { /* Folder browsing remains available if automatic detection fails. */ }
         }
+        static string VersionLabel(string value) { return String.IsNullOrEmpty(value) || value == "Unversioned" ? "Unversioned" : "v" + value; }
         static Version ParseVersion(string value) { Version version; return Version.TryParse(value, out version) ? version : new Version(0, 0); }
         static string ProtonVersion(string root)
         {
@@ -499,6 +500,7 @@ namespace Patchwork
                 selected.Add("disable-telemetry"); selected.Add("server-delay"); RenderPatches(); UpdateSession(); BuildPreview();
             }
             else if (shot == "about") ShowPage("about");
+            else if (shot == "free-selector") { Control<TextBox>("SearchBox").Text = "Free server"; RenderPatches(); ShowPage("library"); }
             else if (shot == "updates") { ShowPage("about"); window.UpdateLayout(); Control<ScrollViewer>("AboutScroll").ScrollToEnd(); }
             else if (shot == "history" || shot == "empty-history") ShowPage("history");
         }

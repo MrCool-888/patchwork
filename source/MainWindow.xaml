@@ -43,7 +43,7 @@
       <Setter Property="Padding" Value="12,9"/><Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
         <Border x:Name="InputBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
-          <Grid><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/><TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Margin="{TemplateBinding Padding}" Foreground="#66758E" IsHitTestVisible="False" Visibility="Collapsed" VerticalAlignment="Center"/></Grid>
+          <Grid><ScrollViewer x:Name="PART_ContentHost" Margin="0"/><TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Margin="{TemplateBinding Padding}" Foreground="#66758E" IsHitTestVisible="False" Visibility="Collapsed" VerticalAlignment="Center"/></Grid>
         </Border>
         <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="#B4A1FF"/></Trigger><Trigger Property="Text" Value=""><Setter TargetName="Watermark" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
       </ControlTemplate></Setter.Value></Setter>
@@ -122,7 +122,7 @@
           <Border Background="#182234" CornerRadius="10" Padding="14" Margin="0,0,0,16">
             <StackPanel><TextBlock Text="Bring your patch files" FontWeight="SemiBold" FontSize="13"/><TextBlock Text="Import separate files for the apps you want to change." TextWrapping="Wrap" Foreground="#929DB1" FontSize="12" Margin="0,7,0,13" LineHeight="18"/><Button x:Name="PatchGuideButton" Content="Patch-file guide  →" FontSize="12" Padding="10,9" Background="#252E43"/></StackPanel>
           </Border>
-          <StackPanel Orientation="Horizontal" Margin="7,0"><Ellipse Width="6" Height="6" Fill="#85DCC0" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="v0.3.0  ·  Experimental" FontSize="11" Foreground="#73819A"/></StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="7,0"><Ellipse Width="6" Height="6" Fill="#85DCC0" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="v0.4.0  ·  Experimental" FontSize="11" Foreground="#73819A"/></StackPanel>
         </StackPanel>
       </Grid>
     </Border>

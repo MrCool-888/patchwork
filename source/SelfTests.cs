@@ -125,6 +125,9 @@ namespace Patchwork
             Test("Updates reject unexpected repositories, assets, digests and sizes", () => UpdaterTests.UntrustedAssets());
             Test("Installer download verification rejects tampering and non-executables", () => UpdaterTests.Tampering());
             Test("Fresh library is empty; separate imports persist without duplication", () => UpdaterTests.ImportOnly(root));
+            Test("Conditional selectors, projections and generic inherited overrides execute and restore", () => SelectorTests.Runtime(root));
+            Test("Selectors reject invalid conditions, signatures, call counts and mappings", () => SelectorTests.Rejections(root));
+            Test("Pack and patch versions validate, display and persist in history", () => UpdaterTests.VersionMetadata(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;
