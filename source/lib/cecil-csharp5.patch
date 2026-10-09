@@ -1,0 +1,156 @@
+diff --git a/Mono.Cecil.Cil/MethodBody.cs b/Mono.Cecil.Cil/MethodBody.cs
+index 89bfc90..5912f34 100644
+--- a/Mono.Cecil.Cil/MethodBody.cs
++++ b/Mono.Cecil.Cil/MethodBody.cs
+@@ -332,21 +332,16 @@ namespace Mono.Cecil.Cil {
+ 			if (method.debug_info != null)
+ 				UpdateLocalScope (method.debug_info.Scope, ref resolver);
+ 
+-			var custom_debug_infos = method.custom_infos ?? method.debug_info?.custom_infos;
++			var custom_debug_infos = method.custom_infos ?? (method.debug_info == null ? null : method.debug_info.custom_infos);
+ 			if (custom_debug_infos != null) {
+ 				foreach (var custom_debug_info in custom_debug_infos) {
+-					switch (custom_debug_info) {
+-					case StateMachineScopeDebugInformation state_machine_scope:
++					if (custom_debug_info is StateMachineScopeDebugInformation) {
++						var state_machine_scope = (StateMachineScopeDebugInformation) custom_debug_info;
+ 						UpdateStateMachineScope (state_machine_scope, ref resolver);
+-						break;
+-
+-					case AsyncMethodBodyDebugInformation async_method_body:
++					} else if (custom_debug_info is AsyncMethodBodyDebugInformation) {
++						var async_method_body = (AsyncMethodBodyDebugInformation) custom_debug_info;
+ 						UpdateAsyncMethodBody (async_method_body, ref resolver);
+-						break;
+ 
+-					default:
+-						// No need to update the other debug info as they don't store instruction references
+-						break;
+ 					}
+ 				}
+ 			}
+@@ -403,7 +398,7 @@ namespace Mono.Cecil.Cil {
+ 			int cache_index;
+ 			Instruction cache_instruction;
+ 
+-			public int LastOffset { get => cache_offset; }
++			public int LastOffset { get { return cache_offset; } }
+ 
+ 			public InstructionOffsetResolver (Instruction[] instructions, Instruction removedInstruction, Instruction existingInstruction)
+ 			{
+diff --git a/Mono.Cecil.Cil/PortablePdb.cs b/Mono.Cecil.Cil/PortablePdb.cs
+index 4f58ebf..f2e9cbe 100644
+--- a/Mono.Cecil.Cil/PortablePdb.cs
++++ b/Mono.Cecil.Cil/PortablePdb.cs
+@@ -40,7 +40,7 @@ namespace Mono.Cecil.Cil {
+ 
+ 		ISymbolReader GetSymbolReader (ModuleDefinition module, Disposable<Stream> symbolStream, string fileName)
+ 		{
+-			return new PortablePdbReader (ImageReader.ReadPortablePdb (symbolStream, fileName, out _), module);
++			uint ignored; return new PortablePdbReader (ImageReader.ReadPortablePdb (symbolStream, fileName, out ignored), module);
+ 		}
+ 	}
+ 
+diff --git a/Mono.Cecil.Cil/Symbols.cs b/Mono.Cecil.Cil/Symbols.cs
+index 294eb16..6a80c4d 100644
+--- a/Mono.Cecil.Cil/Symbols.cs
++++ b/Mono.Cecil.Cil/Symbols.cs
+@@ -208,9 +208,9 @@ namespace Mono.Cecil.Cil {
+ 			get { return instruction == null && !offset.HasValue; }
+ 		}
+ 
+-		internal bool IsResolved => instruction != null || !offset.HasValue;
++		internal bool IsResolved { get { return instruction != null || !offset.HasValue; } }
+ 
+-		internal Instruction ResolvedInstruction => instruction;
++		internal Instruction ResolvedInstruction { get { return instruction; } }
+ 
+ 		public InstructionOffset (Instruction instruction)
+ 		{
+@@ -249,9 +249,9 @@ namespace Mono.Cecil.Cil {
+ 			}
+ 		}
+ 
+-		internal bool IsResolved => variable != null;
++		internal bool IsResolved { get { return variable != null; } }
+ 
+-		internal VariableDefinition ResolvedVariable => variable;
++		internal VariableDefinition ResolvedVariable { get { return variable; } }
+ 
+ 		public VariableIndex (VariableDefinition variable)
+ 		{
+@@ -1233,7 +1233,7 @@ namespace Mono.Cecil {
+ 			ModuleDefinition module)
+ 		{
+ 			if (module.HasImage ()) {
+-				module.Read (ref collection, self, static (provider, reader) => {
++				module.Read (ref collection, self, (provider, reader) => {
+ 					var symbol_reader = reader.module.symbol_reader;
+ 					if (symbol_reader != null)
+ 						return symbol_reader.Read (provider);
+@@ -1250,7 +1250,7 @@ namespace Mono.Cecil {
+ 			ModuleDefinition module)
+ 		{
+ 			if (module.HasImage ()) {
+-				module.Read (ref collection, self, static (provider, reader) => {
++				module.Read (ref collection, self, (provider, reader) => {
+ 					var symbol_reader = reader.module.symbol_reader;
+ 					if (symbol_reader != null)
+ 						return symbol_reader.Read (provider);
+diff --git a/Mono.Cecil.Metadata/Buffers.cs b/Mono.Cecil.Metadata/Buffers.cs
+index b32dd43..bcee155 100644
+--- a/Mono.Cecil.Metadata/Buffers.cs
++++ b/Mono.Cecil.Metadata/Buffers.cs
+@@ -282,7 +282,7 @@ namespace Mono.Cecil.Metadata {
+ 			return rva;
+ 		}
+ 
+-		public int BufferAlign => buffer_align;
++		public int BufferAlign { get { return buffer_align; } }
+ 	}
+ 
+ 	abstract class HeapBuffer : ByteBuffer {
+diff --git a/Mono.Cecil.PE/ByteBuffer.cs b/Mono.Cecil.PE/ByteBuffer.cs
+index 68668f5..b727e72 100644
+--- a/Mono.Cecil.PE/ByteBuffer.cs
++++ b/Mono.Cecil.PE/ByteBuffer.cs
+@@ -310,10 +310,10 @@ namespace Mono.Cecil.PE {
+ 
+ 		// extracted from .net BCL
+ 		static uint RotateRight (uint value, int offset)
+-			=> (value >> offset) | (value << (32 - offset));
++			{ return (value >> offset) | (value << (32 - offset)); }
+ 
+ 		static uint RotateLeft (uint value, int offset)
+-			=> (value << offset) | (value >> (32 - offset));
++			{ return (value << offset) | (value >> (32 - offset)); }
+ 
+ 		static ushort ReverseEndianness (ushort value)
+ 		{
+diff --git a/Mono.Cecil/MetadataResolver.cs b/Mono.Cecil/MetadataResolver.cs
+index 29b7862..38c6de8 100644
+--- a/Mono.Cecil/MetadataResolver.cs
++++ b/Mono.Cecil/MetadataResolver.cs
+@@ -241,7 +241,8 @@ namespace Mono.Cecil {
+ 			// And we need to handle privatescope methods somehow, because GetMethod can't.
+ 			//
+ 			// and 2 birds one stone.  This if check covers the optimization and privatescope handling.
+-			if (method is MethodDefinition definition)
++			var definition = method as MethodDefinition;
++			if (definition != null)
+ 				return definition;
+ 
+ 			return GetMethod (type, method);
+diff --git a/Mono.Security.Cryptography/CryptoService.cs b/Mono.Security.Cryptography/CryptoService.cs
+index 1da81b1..c480cfe 100644
+--- a/Mono.Security.Cryptography/CryptoService.cs
++++ b/Mono.Security.Cryptography/CryptoService.cs
+@@ -26,7 +26,7 @@ namespace Mono.Cecil {
+ 
+ 	static class CryptoService {
+ 
+-		static SHA1 CreateSHA1 () => new SHA1CryptoServiceProvider ();
++		static SHA1 CreateSHA1 () { return new SHA1CryptoServiceProvider (); }
+ 
+ 		public static byte [] GetPublicKey (WriterParameters parameters)
+ 		{
