@@ -50,6 +50,29 @@ namespace Patchwork
             else foreach (var instruction in method.Body.Instructions) text.AppendLine("  " + instruction);
             return text.ToString();
         }
+        public static void Compare(byte[] before, byte[] after, string root, out string beforeText, out string afterText)
+        {
+            using (var resolver = Resolver(root))
+            using (var leftStream = new MemoryStream(before, false))
+            using (var rightStream = new MemoryStream(after, false))
+            using (var left = ModuleDefinition.ReadModule(leftStream, new ReaderParameters { AssemblyResolver = resolver, InMemory = true }))
+            using (var right = ModuleDefinition.ReadModule(rightStream, new ReaderParameters { AssemblyResolver = resolver, InMemory = true }))
+            {
+                var oldMethods = Types(left.Types).SelectMany(x => x.Methods).GroupBy(x => x.FullName).ToDictionary(x => x.Key, x => String.Join("\n", x.Select(Describe).OrderBy(s => s, StringComparer.Ordinal)));
+                var newMethods = Types(right.Types).SelectMany(x => x.Methods).GroupBy(x => x.FullName).ToDictionary(x => x.Key, x => String.Join("\n", x.Select(Describe).OrderBy(s => s, StringComparer.Ordinal)));
+                var oldText = new StringBuilder(); var newText = new StringBuilder();
+                foreach (string name in oldMethods.Keys.Union(newMethods.Keys).OrderBy(x => x, StringComparer.Ordinal))
+                {
+                    string oldValue, newValue;
+                    if (!oldMethods.TryGetValue(name, out oldValue)) oldValue = name + "\n  (method not present)\n";
+                    if (!newMethods.TryGetValue(name, out newValue)) newValue = name + "\n  (method not present)\n";
+                    if (oldValue == newValue) continue;
+                    oldText.AppendLine(oldValue); newText.AppendLine(newValue);
+                }
+                beforeText = oldText.Length == 0 ? "Method bodies are unchanged; this file remains tracked for restoration." : oldText.ToString();
+                afterText = newText.Length == 0 ? "Method bodies are unchanged; this file remains tracked for restoration." : newText.ToString();
+            }
+        }
         static DefaultAssemblyResolver Resolver(string root)
         {
             var resolver = new DefaultAssemblyResolver(); resolver.AddSearchDirectory(root);

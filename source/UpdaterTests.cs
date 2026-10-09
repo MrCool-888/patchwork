@@ -51,6 +51,19 @@ namespace Patchwork
             byte[] text = Encoding.ASCII.GetBytes("not an executable"); release.Size = text.Length; release.Sha256 = PatchEngine.Hash(text);
             Reject(() => Updates.Verify(release, text));
         }
+        public static void TransportBoundaries()
+        {
+            foreach (string host in new[] { "api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com" })
+                Assert(GitHubHttp.Address("https://" + host + "/asset").Host == host);
+            foreach (string url in new[] { "http://github.com/asset", "https://github.com:444/asset", "https://github.com.example.org/asset", "https://person:secret@github.com/asset", "https://example.org/asset", "https://github.com/asset#fragment" })
+                Reject(() => GitHubHttp.Address(url));
+            foreach (int maximum in new[] { 0, -1, 16 * 1024 * 1024 + 1 })
+            {
+                bool rejected = false;
+                try { GitHubHttp.Fetch("https://api.github.com/", maximum); } catch (ArgumentOutOfRangeException) { rejected = true; }
+                Assert(rejected);
+            }
+        }
         public static void SetupHandoff(string root)
         {
             root = Path.GetFullPath(root);

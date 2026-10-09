@@ -113,6 +113,7 @@
           <TextBlock Text="WORKSPACE" FontSize="10" FontWeight="Bold" Foreground="#65738C" Margin="13,0,0,9"/>
           <Button x:Name="LibraryNav" Style="{StaticResource NavButton}" Background="#272239" Foreground="#CCBEFF"><StackPanel Orientation="Horizontal"><TextBlock Text="▦" Width="27" FontSize="19"/><TextBlock Text="Patch library" VerticalAlignment="Center"/></StackPanel></Button>
           <Button x:Name="HistoryNav" Style="{StaticResource NavButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="↶" Width="27" FontSize="20"/><TextBlock Text="History &amp; restore" VerticalAlignment="Center"/></StackPanel></Button>
+          <Button x:Name="SourcesNav" Style="{StaticResource NavButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="↻" Width="27" FontSize="20"/><TextBlock Text="Patch sources" VerticalAlignment="Center"/></StackPanel></Button>
           <Button x:Name="AboutNav" Style="{StaticResource NavButton}"><StackPanel Orientation="Horizontal"><TextBlock Text="◉" Width="27" FontSize="17"/><TextBlock Text="About this build" VerticalAlignment="Center"/></StackPanel></Button>
         </StackPanel>
         <Border Grid.Row="1" BorderBrush="#253044" BorderThickness="0,1,0,0" Margin="9,25,9,0" Padding="0,22,0,0">
@@ -122,7 +123,7 @@
           <Border Background="#182234" CornerRadius="10" Padding="14" Margin="0,0,0,16">
             <StackPanel><TextBlock Text="Bring your patch files" FontWeight="SemiBold" FontSize="13"/><TextBlock Text="Import separate files for the apps you want to change." TextWrapping="Wrap" Foreground="#929DB1" FontSize="12" Margin="0,7,0,13" LineHeight="18"/><Button x:Name="PatchGuideButton" Content="Patch-file guide  →" FontSize="12" Padding="10,9" Background="#252E43"/></StackPanel>
           </Border>
-          <StackPanel Orientation="Horizontal" Margin="7,0"><Ellipse Width="6" Height="6" Fill="#85DCC0" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="v0.4.2  ·  Experimental" FontSize="11" Foreground="#73819A"/></StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="7,0"><Ellipse Width="6" Height="6" Fill="#85DCC0" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="v0.5.0  ·  Experimental" FontSize="11" Foreground="#73819A"/></StackPanel>
         </StackPanel>
       </Grid>
     </Border>
@@ -130,7 +131,7 @@
       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <Grid Margin="0,0,0,24">
         <StackPanel><TextBlock x:Name="PageEyebrow" Text="WINDOWS APP PATCHER" Foreground="#A18BCF" FontSize="10" FontWeight="Bold"/><TextBlock x:Name="PageTitle" Text="Make your apps yours." FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock x:Name="PageSubtitle" Text="Choose an app. Pick your patches. Stay in control." Foreground="#929DB1" Margin="0,8,0,0" FontSize="13"/></StackPanel>
-        <Button x:Name="ImportButton" Content="＋  Add patch file" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,0,0" FontSize="12"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,0,0"><Button x:Name="SourcesButton" Content="↻  Patch sources" FontSize="12" Margin="0,0,10,0"/><Button x:Name="ImportButton" Content="＋  Add patch file" FontSize="12"/></StackPanel>
       </Grid>
       <Grid Grid.Row="1" x:Name="LibraryPage">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -169,8 +170,9 @@
           <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="470">
             <Border Background="#272239" Width="68" Height="68" CornerRadius="18" HorizontalAlignment="Center" Margin="0,0,0,23"><TextBlock Text="＋" Foreground="#B4A1FF" FontSize="34" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border>
             <TextBlock Text="Your library starts here." FontSize="27" FontWeight="SemiBold" TextAlignment="Center"/>
-            <TextBlock Text="Add a separate patch file to see its apps and patches. Patchwork includes no patch packs." Foreground="#A3AEC2" TextWrapping="Wrap" TextAlignment="Center" FontSize="14" LineHeight="23" Margin="0,16,0,27"/>
+            <TextBlock Text="Add a separate patch file or a GitHub patch source. Patchwork includes no patch packs." Foreground="#A3AEC2" TextWrapping="Wrap" TextAlignment="Center" FontSize="14" LineHeight="23" Margin="0,16,0,27"/>
             <Button x:Name="EmptyImportButton" Content="＋  Add patch file" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Padding="24,13"/>
+            <Button x:Name="EmptySourcesButton" Content="Add a GitHub source" HorizontalAlignment="Center" Margin="0,12,0,0" FontSize="12"/>
             <TextBlock Text="JSON or .patchwork files · Preview before applying" Foreground="#73819A" TextAlignment="Center" FontSize="11" Margin="0,18,0,0"/>
           </StackPanel>
         </Border>
@@ -180,19 +182,33 @@
         <Border Background="#162B2A" BorderBrush="#2B4946" BorderThickness="1" CornerRadius="9" Padding="16" Margin="0,0,0,16"><StackPanel><TextBlock Text="✓  File fingerprints verified" Foreground="#8DE2C5" FontWeight="SemiBold"/><TextBlock x:Name="PreviewSummary" Foreground="#A4C4B9" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap"/></StackPanel></Border>
         <ComboBox x:Name="PreviewFilePicker" Grid.Row="1" Margin="0,0,0,16"/>
         <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-          <Border Background="#111925" BorderBrush="#2B364C" BorderThickness="1" CornerRadius="10" Padding="15"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="ORIGINAL" Foreground="#929DB1" FontSize="10" FontWeight="Bold" Margin="0,0,0,14"/><TextBox x:Name="BeforeText" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" BorderThickness="0" Background="Transparent" Padding="0"/></Grid></Border>
+          <Border Background="#111925" BorderBrush="#2B364C" BorderThickness="1" CornerRadius="10" Padding="15"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock x:Name="BeforeLabel" Text="ORIGINAL" Foreground="#929DB1" FontSize="10" FontWeight="Bold" Margin="0,0,0,14"/><TextBox x:Name="BeforeText" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" BorderThickness="0" Background="Transparent" Padding="0"/></Grid></Border>
           <Border Grid.Column="2" Background="#131E27" BorderBrush="#30423F" BorderThickness="1" CornerRadius="10" Padding="15"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="PATCHED" Foreground="#8DE2C5" FontSize="10" FontWeight="Bold" Margin="0,0,0,14"/><TextBox x:Name="AfterText" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" BorderThickness="0" Background="Transparent" Padding="0"/></Grid></Border>
         </Grid>
         <Grid Grid.Row="3" Margin="0,18,0,0"><Button x:Name="BackButton" Content="←  Back to patches" HorizontalAlignment="Left"/><Button x:Name="ApplyButton" Content="Back up &amp; apply patches" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right"/></Grid>
       </Grid>
       <Grid Grid.Row="1" x:Name="HistoryPage" Visibility="Collapsed"><ScrollViewer><StackPanel x:Name="HistoryList"/></ScrollViewer></Grid>
+      <Grid Grid.Row="1" x:Name="SourcesPage" Visibility="Collapsed">
+        <ScrollViewer><StackPanel>
+          <Border Background="#151D2B" BorderBrush="#2B354A" BorderThickness="1" CornerRadius="12" Padding="24" Margin="0,0,0,20"><StackPanel>
+            <TextBlock Text="Add a GitHub patch source" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="Paste a public repository or release link. Add sources you trust: newer patch packs from these repositories will replace their saved definitions." Foreground="#A3AEC2" TextWrapping="Wrap" LineHeight="21" FontSize="13" Margin="0,12,0,14"/>
+            <TextBlock Text="GITHUB LINK" Foreground="#73819A" FontSize="10" FontWeight="Bold" Margin="0,0,0,8"/>
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="SourceLinkBox" ToolTip="https://github.com/owner/patches" FontSize="13" Margin="0,0,12,0"/><Button x:Name="AddSourceButton" Grid.Column="1" Content="Add source" Style="{StaticResource PrimaryButton}"/></Grid>
+            <CheckBox x:Name="SourcePrereleases" Content="Include pre-release patch packs (experimental)" IsChecked="True" FontSize="12" Margin="0,16,0,14"/>
+            <TextBlock Text="Automatic checks run when Patchwork opens and about once an hour while it is open. They update your library. Preview and apply to update an already-patched app from its verified original backups." Foreground="#929DB1" TextWrapping="Wrap" FontSize="12" LineHeight="20"/>
+          </StackPanel></Border>
+          <WrapPanel Margin="0,0,0,16"><Button x:Name="CheckSourcesButton" Content="Check all sources" FontSize="12" Margin="0,0,15,6"/><TextBlock x:Name="SourcesStatus" Text="Published JSON or .patchwork release assets · No GitHub sign-in needed" Foreground="#929DB1" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center" Margin="0,0,0,6"/></WrapPanel>
+          <StackPanel x:Name="SourcesList"/>
+        </StackPanel></ScrollViewer>
+      </Grid>
       <Grid Grid.Row="1" x:Name="AboutPage" Visibility="Collapsed">
         <ScrollViewer x:Name="AboutScroll"><StackPanel>
           <Border Background="#151D2B" BorderBrush="#2B354A" BorderThickness="1" CornerRadius="12" Padding="26" Margin="0,0,0,18"><StackPanel>
             <TextBlock Text="Windows patches, kept local." FontSize="23" FontWeight="SemiBold"/>
             <TextBlock Text="Patchwork is a native Windows patch manager. This build supports separate patch files, managed assembly edits, method previews, verified backups, and restoration." TextWrapping="Wrap" Foreground="#A3AEC2" Margin="0,13,0,0" LineHeight="23"/>
             <TextBlock Text="Ready today" Foreground="#85DCC0" FontWeight="SemiBold" Margin="0,24,0,10"/>
-            <TextBlock Text="• Local JSON, text, and managed assembly patches with SHA-256 checks&#10;• Multiple patches, dependency checks, and conflict detection&#10;• Transaction history, rollback, and interrupted-transaction recovery&#10;• Separate patch-file imports; no bundled patch packs" Foreground="#A3AEC2" LineHeight="25" TextWrapping="Wrap"/>
+            <TextBlock Text="• Local JSON, text, and managed assembly patches with SHA-256 checks&#10;• Multiple patches, dependency checks, and conflict detection&#10;• Transaction history, rollback, and interrupted-transaction recovery&#10;• GitHub patch sources with automatic pack updates&#10;• Update applied patches using verified originals; no manual restore&#10;• Separate patch packs; no bundled definitions" Foreground="#A3AEC2" LineHeight="25" TextWrapping="Wrap"/>
             <TextBlock Text="Patch files live separately" Foreground="#E9C985" FontWeight="SemiBold" Margin="0,24,0,10"/>
             <TextBlock Text="The installer contains the patcher and guides. Add patch files from their separate repository or another source you trust. Updating the patcher preserves imported files and history." Foreground="#A3AEC2" TextWrapping="Wrap" LineHeight="23"/>
           </StackPanel></Border>

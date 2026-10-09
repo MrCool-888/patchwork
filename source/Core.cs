@@ -175,7 +175,7 @@ namespace Patchwork
             if (input.Any(x => !(x is string))) throw new InvalidDataException("Expected an array of strings.");
             return input.Cast<string>().ToList();
         }
-        static void ValidateId(string id)
+        internal static void ValidateId(string id)
         {
             if (!System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-z0-9][a-z0-9-]{0,79}$")) throw new InvalidDataException("IDs must use lowercase letters, numbers, and hyphens.");
         }
@@ -199,13 +199,14 @@ namespace Patchwork
     public class FileChange
     {
         public string RelativePath, BeforeHash, AfterHash, BeforeText, AfterText;
-        public byte[] BeforeBytes, AfterBytes;
+        public byte[] BeforeBytes, AfterBytes, OriginalBeforeBytes;
+        public string OriginalBeforeHash;
         public List<string> Details = new List<string>();
         [ScriptIgnore] public List<PatchOperation> ManagedOperations = new List<PatchOperation>();
     }
     public class PatchPlan
     {
-        public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256, PackVersion, BundleSha256;
+        public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256, PackVersion, BundleSha256, VersionCurrentSha256, PreviousJournalId;
         public DateTime CreatedUtc;
         public List<string> PatchIds = new List<string>();
         public List<string> PatchNames = new List<string>();
@@ -217,6 +218,8 @@ namespace Patchwork
         public string BeforeHash { get; set; }
         public string AfterHash { get; set; }
         public string BackupFile { get; set; }
+        public string PreviousHash { get; set; }
+        public string PreviousBackupFile { get; set; }
     }
     public class Journal
     {
@@ -231,11 +234,15 @@ namespace Patchwork
         public string State { get; set; }
         public string Error { get; set; }
         public List<string> PatchNames { get; set; }
+        public List<string> PatchIds { get; set; }
+        public string PreviousJournalId { get; set; }
+        public string SupersededBy { get; set; }
+        public bool RestoreToPrevious { get; set; }
         public List<JournalFile> Files { get; set; }
         [ScriptIgnore] public string DirectoryPath { get; set; }
     }
 
-    public class PatchEngine
+    public partial class PatchEngine
     {
         public readonly string DataRoot;
         readonly object transactionLock = new object();
@@ -285,7 +292,7 @@ namespace Patchwork
             }
             return full;
         }
-        public PatchPlan Preview(PatchBundle bundle, string root, IEnumerable<string> selection)
+        PatchPlan PreviewOriginal(PatchBundle bundle, string root, IEnumerable<string> selection, Dictionary<string, byte[]> originals)
         {
             lock (transactionLock)
             {
@@ -301,8 +308,8 @@ namespace Patchwork
                     if (patch.Conflicts.Any(ids.Contains)) throw new InvalidOperationException("Conflicting patch selection: " + patch.Name);
                 }
                 string versionPath = Resolve(root, bundle.VersionFile);
-                if (!Hash(Read(versionPath)).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Target fingerprint does not match " + bundle.AppName + " " + bundle.AppVersion + ".");
-                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, PackVersion = bundle.PackVersion, BundleSha256 = Hash(Encoding.UTF8.GetBytes(bundle.Content)), VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name + (x.Version == "Unversioned" ? " (unversioned)" : " (v" + x.Version + ")")).ToList() };
+                if (!Hash(ReadOriginal(versionPath, originals)).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Target fingerprint does not match " + bundle.AppName + " " + bundle.AppVersion + ".");
+                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, PackVersion = bundle.PackVersion, BundleSha256 = Hash(Encoding.UTF8.GetBytes(bundle.Content)), VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, VersionCurrentSha256 = Hash(Read(versionPath)), CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name + (x.Version == "Unversioned" ? " (unversioned)" : " (v" + x.Version + ")")).ToList() };
                 var files = new Dictionary<string, FileChange>(StringComparer.OrdinalIgnoreCase);
                 var jsonTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var patch in selected)
@@ -312,7 +319,7 @@ namespace Patchwork
                         FileChange change;
                         if (!files.TryGetValue(full, out change))
                         {
-                            byte[] before = Read(full);
+                            byte[] before = ReadOriginal(full, originals);
                             bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
                             change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed ? "" : Decode(before) };
                             change.AfterText = change.BeforeText;
@@ -373,12 +380,15 @@ namespace Patchwork
             using (AcquireTransaction())
             {
                 EnsureNoRecoveryPending(plan.TargetRoot);
-                if (!Hash(Read(Resolve(plan.TargetRoot, plan.VersionFile))).Equals(plan.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The target version changed after preview. Preview again.");
+                var previous = ActiveSession(plan.TargetRoot);
+                if ((previous == null ? null : previous.Id) != plan.PreviousJournalId) throw new InvalidOperationException("The applied session changed after preview. Preview again.");
+                if (previous != null) VerifyOriginals(previous);
+                if (!Hash(Read(Resolve(plan.TargetRoot, plan.VersionFile))).Equals(plan.VersionCurrentSha256 ?? plan.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The target version changed after preview. Preview again.");
                 foreach (var change in plan.Files)
                     if (Hash(Read(Resolve(plan.TargetRoot, change.RelativePath))) != change.BeforeHash) throw new InvalidOperationException("A file changed after preview: " + change.RelativePath + ". Preview again.");
                 var journal = new Journal {
                     Id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8), AppName = plan.AppName, AppVersion = plan.AppVersion,
-                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), Files = new List<JournalFile>()
+                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), PatchIds = plan.PatchIds.ToList(), PreviousJournalId = plan.PreviousJournalId, RestoreToPrevious = previous != null, Files = new List<JournalFile>()
                 };
                 journal.DirectoryPath = Path.Combine(DataRoot, "history", journal.Id);
                 Directory.CreateDirectory(journal.DirectoryPath);
@@ -386,8 +396,13 @@ namespace Patchwork
                 {
                     var change = plan.Files[i];
                     string backup = i.ToString("D3") + ".original";
-                    DurableWrite(Path.Combine(journal.DirectoryPath, backup), change.BeforeBytes);
-                    journal.Files.Add(new JournalFile { RelativePath = change.RelativePath, BeforeHash = change.BeforeHash, AfterHash = change.AfterHash, BackupFile = backup });
+                    byte[] original = change.OriginalBeforeBytes ?? change.BeforeBytes;
+                    string originalHash = change.OriginalBeforeHash ?? change.BeforeHash;
+                    if (Hash(original) != originalHash || Hash(change.BeforeBytes) != change.BeforeHash || Hash(change.AfterBytes) != change.AfterHash) throw new InvalidDataException("Preview bytes failed verification.");
+                    DurableWrite(Path.Combine(journal.DirectoryPath, backup), original);
+                    var entry = new JournalFile { RelativePath = change.RelativePath, BeforeHash = originalHash, AfterHash = change.AfterHash, BackupFile = backup };
+                    if (previous != null) { entry.PreviousHash = change.BeforeHash; entry.PreviousBackupFile = i.ToString("D3") + ".previous"; DurableWrite(Path.Combine(journal.DirectoryPath, entry.PreviousBackupFile), change.BeforeBytes); }
+                    journal.Files.Add(entry);
                 }
                 Save(journal);
                 try
@@ -396,20 +411,22 @@ namespace Patchwork
                     {
                         if (BeforeWriteForTest != null) BeforeWriteForTest(i);
                         var change = plan.Files[i];
+                        if (change.BeforeHash == change.AfterHash) continue;
                         string destination = Resolve(plan.TargetRoot, change.RelativePath);
                         AtomicReplace(destination, change.AfterBytes, change.BeforeHash);
                         if (Hash(Read(destination)) != change.AfterHash) throw new IOException("Verification failed after writing " + change.RelativePath);
                     }
-                    journal.State = "Applied"; Save(journal);
+                    journal.State = "Applied"; journal.RestoreToPrevious = false; Save(journal);
+                    if (previous != null) { previous.State = "Superseded"; previous.SupersededBy = journal.Id; Save(previous); }
                     return journal;
                 }
                 catch (Exception error)
                 {
                     journal.Error = error.Message;
-                    journal.State = "RecoveryRequired"; Save(journal);
-                    try { RestoreInternal(journal, true); journal.State = "RolledBack"; Save(journal); }
+                    journal.State = "RecoveryRequired"; journal.RestoreToPrevious = previous != null; Save(journal);
+                    try { if (previous != null) RestorePreviousInternal(journal); else { RestoreInternal(journal, true); journal.State = "RolledBack"; Save(journal); } }
                     catch (Exception rollback) { journal.Error += " Recovery: " + rollback.Message; Save(journal); }
-                    throw new IOException("Apply failed. " + (journal.State == "RolledBack" ? "Original files were restored. " : "Review the recovery entry in History. ") + error.Message, error);
+                    throw new IOException("Apply failed. " + (journal.State == "RolledBack" ? previous == null ? "Original files were restored. " : "The previous patch version was restored. " : "Review the recovery entry in History. ") + error.Message, error);
                 }
             }
         }
@@ -418,8 +435,12 @@ namespace Patchwork
             lock (transactionLock)
             using (AcquireTransaction())
             {
+                journal = History().Single(x => x.Id == journal.Id);
+                if (journal.State == "Superseded") throw new InvalidOperationException("A newer patch session replaced this one. Restore the current session instead.");
+                if (History().Any(x => x.Id != journal.Id && SameRoot(x.TargetRoot, journal.TargetRoot) && (x.State == "Prepared" || x.State == "Restoring" || x.State == "RecoveryRequired"))) throw new InvalidOperationException("Recover the unfinished transaction for this folder first.");
                 if (journal.State != "Applied" && journal.State != "Prepared" && journal.State != "RecoveryRequired" && journal.State != "Restoring") throw new InvalidOperationException("This backup has already been restored or rolled back.");
-                RestoreInternal(journal, journal.State != "Applied");
+                if (journal.RestoreToPrevious) RestorePreviousInternal(journal);
+                else RestoreInternal(journal, journal.State != "Applied");
             }
         }
         void RestoreInternal(Journal journal, bool recovery)
@@ -467,6 +488,12 @@ namespace Patchwork
                     result.Add(journal);
                 }
                 catch { /* Ignore unreadable entries; do not mutate an unknown journal. */ }
+            }
+            // Also derive predecessor state if a process stopped after committing the child journal.
+            foreach (var child in result.Where(x => !String.IsNullOrEmpty(x.PreviousJournalId) && !x.RestoreToPrevious && (x.State == "Applied" || x.State == "Restored" || x.State == "Restoring" || x.State == "RecoveryRequired")))
+            {
+                var parent = result.SingleOrDefault(x => x.Id == child.PreviousJournalId);
+                if (parent != null && parent.State == "Applied") { parent.State = "Superseded"; parent.SupersededBy = child.Id; }
             }
             return result.OrderByDescending(x => x.CreatedUtc, StringComparer.Ordinal).ToList();
         }

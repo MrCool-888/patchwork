@@ -42,6 +42,12 @@ namespace Patchwork
         public static AppRelease Check()
         {
             try { return Parse(PatchEngine.Decode(Fetch(LatestApi, 1024 * 1024)), InstalledVersion); }
+            catch (GitHubHttpException error)
+            {
+                if (error.StatusCode == 404) throw new IOException("No published patcher release was found on GitHub.");
+                if (error.StatusCode == 403 || error.StatusCode == 429) throw new IOException("GitHub temporarily limited update requests. Try again later.");
+                throw;
+            }
             catch (WebException error)
             {
                 var response = error.Response as HttpWebResponse;
@@ -94,43 +100,6 @@ namespace Patchwork
                 throw new InvalidDataException("The installer failed its size or SHA-256 check. It was not launched.");
             if (bytes.Length < 2 || bytes[0] != 'M' || bytes[1] != 'Z') throw new InvalidDataException("The release asset is not a Windows executable.");
         }
-        static byte[] Fetch(string url, int maximum)
-        {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            for (int redirects = 0; redirects < 6; redirects++)
-            {
-                Uri address = new Uri(url);
-                if (address.Scheme != "https" || address.Port != 443 || address.UserInfo.Length != 0 ||
-                    !new[] { "api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com" }.Contains(address.Host))
-                    throw new InvalidDataException("Unexpected GitHub update host.");
-                var request = (HttpWebRequest)WebRequest.Create(address);
-                request.UserAgent = "Patchwork/" + DisplayVersion;
-                request.Accept = address.Host == "api.github.com" ? "application/vnd.github+json" : "application/octet-stream";
-                if (address.Host == "api.github.com") request.Headers["X-GitHub-Api-Version"] = "2022-11-28";
-                request.AllowAutoRedirect = false; request.Timeout = 15000; request.ReadWriteTimeout = 15000;
-                using (var response = (HttpWebResponse)request.GetResponse())
-                {
-                    if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400)
-                    {
-                        string location = response.Headers["Location"];
-                        if (String.IsNullOrEmpty(location)) throw new IOException("GitHub sent an invalid redirect.");
-                        url = new Uri(address, location).AbsoluteUri; continue;
-                    }
-                    if (response.StatusCode != HttpStatusCode.OK || response.ContentLength > maximum) throw new IOException("The update response is invalid or too large.");
-                    using (var input = response.GetResponseStream())
-                    using (var output = new MemoryStream())
-                    {
-                        byte[] buffer = new byte[16384]; int count;
-                        while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
-                        {
-                            if (output.Length + count > maximum) throw new IOException("The update download exceeds its size limit.");
-                            output.Write(buffer, 0, count);
-                        }
-                        return output.ToArray();
-                    }
-                }
-            }
-            throw new IOException("GitHub sent too many redirects.");
-        }
+        internal static byte[] Fetch(string url, int maximum) { return GitHubHttp.Fetch(url, maximum); }
     }
 }

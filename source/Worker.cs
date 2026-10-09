@@ -42,6 +42,7 @@ namespace Patchwork
                 job["bundle"] = bundle.Content; job["selected"] = plan.PatchIds;
                 job["before"] = plan.Files.ToDictionary(x => x.RelativePath, x => x.BeforeHash);
                 job["after"] = plan.Files.ToDictionary(x => x.RelativePath, x => x.AfterHash);
+                job["previousJournalId"] = plan.PreviousJournalId ?? "";
             }
             else job["journalId"] = restore.Id;
             string file = PatchEngine.Resolve(jobs, Guid.NewGuid().ToString("N") + ".json");
@@ -62,6 +63,7 @@ namespace Patchwork
                 {
                     var bundle = PatchBundle.Parse(Json.String(job, "bundle"));
                     var plan = engine.Preview(bundle, target, Json.Array(job, "selected").Cast<string>());
+                    if ((plan.PreviousJournalId ?? "") != Json.String(job, "previousJournalId", "")) throw new InvalidOperationException("The applied session changed after preview. Preview again.");
                     var before = Json.Object(job["before"]); var after = Json.Object(job["after"]);
                     if (before.Count != plan.Files.Count || after.Count != plan.Files.Count || plan.Files.Any(x => !before.ContainsKey(x.RelativePath) || !after.ContainsKey(x.RelativePath) || (string)before[x.RelativePath] != x.BeforeHash || (string)after[x.RelativePath] != x.AfterHash)) throw new InvalidOperationException("Files or patches changed after preview. Preview again.");
                     journalId = engine.Apply(plan).Id;
