@@ -19,8 +19,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Patchwork Setup")]
 [assembly: AssemblyProduct("Patchwork")]
-[assembly: AssemblyVersion("0.4.0.0")]
-[assembly: AssemblyFileVersion("0.4.0.0")]
+[assembly: AssemblyVersion("0.4.1.0")]
+[assembly: AssemblyFileVersion("0.4.1.0")]
 
 namespace PatchworkSetup
 {
@@ -34,7 +34,7 @@ namespace PatchworkSetup
     public static class InstallerEngine
     {
         public const string ProductId = "8b72ca27-3a4b-45af-9d7c-61951c6bdf70";
-        public const string Version = "0.4.0";
+        public const string Version = "0.4.1";
         const string Marker = "patchwork-install.json";
         const string RegistryPath = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Patchwork";
         static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 2 * 1024 * 1024 };
@@ -78,21 +78,47 @@ namespace PatchworkSetup
             foreach (var entry in info.Files) Resolve(root, entry.Key);
             return info;
         }
-        static void CheckRunning(string root)
+        public static void ReleaseWorkingDirectory(string root)
         {
+            root = Path.GetFullPath(root).TrimEnd('\\');
+            string current = Path.GetFullPath(Environment.CurrentDirectory).TrimEnd('\\');
+            if (current.Equals(root, StringComparison.OrdinalIgnoreCase) || current.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase))
+                Environment.CurrentDirectory = Path.GetTempPath();
+        }
+        public static void WaitForUpdater(int processId, long startTicks, int timeout)
+        {
+            if (processId <= 0 || startTicks <= 0 || timeout < 0) throw new ArgumentException("Invalid update process identity.");
+            Process process;
+            try { process = Process.GetProcessById(processId); }
+            catch (ArgumentException) { return; } // The old application already exited.
+            using (process)
+            {
+                try
+                {
+                    if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != startTicks) return; // PID was reused.
+                    if (!process.WaitForExit(timeout)) throw new IOException("Patchwork is still running. Close it, then retry setup. No program files were replaced.");
+                }
+                catch (InvalidOperationException) { return; } // Exited during inspection.
+            }
+        }
+        public static void WaitForRunning(string root, int timeout)
+        {
+            var elapsed = Stopwatch.StartNew();
             foreach (var process in Process.GetProcessesByName("Patchwork"))
             {
                 using (process)
                 {
                     string location = "";
                     try { location = process.MainModule.FileName; } catch { }
-                    if (String.Equals(location, Path.Combine(root, "Patchwork.exe"), StringComparison.OrdinalIgnoreCase)) throw new IOException("Close Patchwork and try again.");
+                    if (String.Equals(location, Path.Combine(root, "Patchwork.exe"), StringComparison.OrdinalIgnoreCase) &&
+                        !process.WaitForExit(Math.Max(0, timeout - (int)elapsed.ElapsedMilliseconds)))
+                        throw new IOException("Patchwork is still running. Close it, then retry setup. No program files were replaced.");
                 }
             }
         }
         public static void Install(string root, bool desktop, bool integration)
         {
-            root = Canonical(root); CheckRunning(root);
+            root = Canonical(root); ReleaseWorkingDirectory(root); WaitForRunning(root, 30000);
             var old = ReadInfo(root);
             if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any() && old == null) throw new IOException("The installation folder contains unrelated files. Setup has left it unchanged.");
             string parent = Path.GetDirectoryName(root); Directory.CreateDirectory(parent);
@@ -123,7 +149,16 @@ namespace PatchworkSetup
                 string uninstaller = Path.Combine(stage, "Uninstall.exe");
                 File.Copy(Assembly.GetExecutingAssembly().Location, uninstaller); info.Files["Uninstall.exe"] = Hash(File.ReadAllBytes(uninstaller));
                 File.WriteAllText(Path.Combine(stage, Marker), Json.Serialize(info), new UTF8Encoding(false));
-                if (Directory.Exists(root)) { Directory.Move(root, previous); hadOriginal = true; }
+                if (Directory.Exists(root))
+                {
+                    try { Directory.Move(root, previous); hadOriginal = true; }
+                    catch (IOException error)
+                    {
+                        int code = Marshal.GetHRForException(error) & 0xffff;
+                        if (code == 32 || code == 33) throw new IOException("Windows is holding the Patchwork program folder open. Close Patchwork and any windows using that folder, then retry setup. Your existing installation is preserved.", error);
+                        throw;
+                    }
+                }
                 Directory.Move(stage, root); swapped = true;
                 if (integration) Register(root, desktop);
                 if (hadOriginal)
@@ -147,7 +182,7 @@ namespace PatchworkSetup
         }
         public static int Uninstall(string root, bool integration)
         {
-            root = Canonical(root); CheckRunning(root);
+            root = Canonical(root); ReleaseWorkingDirectory(root); WaitForRunning(root, 30000);
             var info = ReadInfo(root);
             if (info == null) throw new IOException("No recognized Patchwork installation was found.");
             int retained = RemoveKnown(root, info, true);
@@ -274,16 +309,22 @@ namespace PatchworkSetup
             {
                 string tests = Argument(args, "--self-test"); if (tests != null) return InstallerEngine.SelfTest(tests);
                 bool uninstall = args.Contains("--uninstall") || Path.GetFileNameWithoutExtension(Assembly.GetExecutingAssembly().Location).Equals("Uninstall", StringComparison.OrdinalIgnoreCase);
-                string root = Argument(args, "--install-root") ?? (uninstall ? AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\') : InstallerEngine.DefaultRoot);
-                string screenshot = Argument(args, "--screenshot");
+                string root = Path.GetFullPath(Argument(args, "--install-root") ?? (uninstall ? AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\') : InstallerEngine.DefaultRoot));
+                string screenshot = Argument(args, "--screenshot"); if (screenshot != null) screenshot = Path.GetFullPath(screenshot);
+                InstallerEngine.ReleaseWorkingDirectory(root);
+                int waitPid = 0; long waitTicks = 0;
+                string pidArgument = Argument(args, "--wait-for-process"), ticksArgument = Argument(args, "--wait-for-start-ticks");
+                if (pidArgument != null || ticksArgument != null)
+                    if (!Int32.TryParse(pidArgument, out waitPid) || waitPid <= 0 || !Int64.TryParse(ticksArgument, out waitTicks) || waitTicks <= 0)
+                        throw new IOException("Invalid update process identity.");
                 if (uninstall && screenshot == null && String.Equals(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase))
                 {
                     string temporary = Path.Combine(Path.GetTempPath(), "Patchwork-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
                     File.Copy(Assembly.GetExecutingAssembly().Location, temporary);
-                    Process.Start(new ProcessStartInfo(temporary, "--uninstall --install-root \"" + root.TrimEnd('\\') + "\"") { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo(temporary, "--uninstall --install-root \"" + root.TrimEnd('\\') + "\"") { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(temporary) });
                     return 0;
                 }
-                var application = new Application(); var window = new SetupWindow(root, uninstall);
+                var application = new Application(); var window = new SetupWindow(root, uninstall, waitPid, waitTicks);
                 if (screenshot != null)
                 {
                     window.ShowInTaskbar = false; window.WindowStartupLocation = WindowStartupLocation.Manual; window.Left = -10000; window.Top = -10000;
@@ -310,13 +351,15 @@ namespace PatchworkSetup
     {
         readonly string root;
         readonly bool uninstall;
+        readonly int waitPid;
+        readonly long waitTicks;
         readonly TextBlock status;
         readonly Button action, cancel;
         readonly CheckBox desktop;
         bool busy, finished;
-        public SetupWindow(string root, bool uninstall)
+        public SetupWindow(string root, bool uninstall, int waitPid = 0, long waitTicks = 0)
         {
-            this.root = root; this.uninstall = uninstall;
+            this.root = root; this.uninstall = uninstall; this.waitPid = waitPid; this.waitTicks = waitTicks;
             Title = uninstall ? "Uninstall Patchwork" : "Install Patchwork"; Width = 620; Height = 680; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Color("#0B1019"); Foreground = Color("#EBEFF7"); FontFamily = new FontFamily("Segoe UI"); FontSize = 14;
             var body = new Grid { Margin = new Thickness(34), Background = Background };
@@ -338,7 +381,7 @@ namespace PatchworkSetup
                 content.Children.Add(Text("Add separate patch files after installation.", 12, "#929DB1", 12));
             }
             else { content.Children.Add(Text("Restore any active patches in Patchwork before uninstalling if you want the target files returned to their originals.", 12, "#E9C985", 20)); }
-            status = Text("Version 0.4.0 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
+            status = Text("Version 0.4.1 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) }; Grid.SetRow(buttons, 1);
             cancel = Button("Cancel", false); cancel.Margin = new Thickness(0, 0, 12, 0); cancel.Click += delegate { Close(); }; buttons.Children.Add(cancel);
             action = Button(uninstall ? "Uninstall" : "Install Patchwork", true); action.Click += async delegate { await RunAction(); }; buttons.Children.Add(action); body.Children.Add(buttons);
@@ -356,11 +399,11 @@ namespace PatchworkSetup
             }
             bool shortcut = desktop != null && desktop.IsChecked == true;
             busy = true; action.IsEnabled = false; cancel.IsEnabled = false; if (desktop != null) desktop.IsEnabled = false;
-            status.Text = uninstall ? "Removing program files and shortcuts…" : "Installing app files and registering shortcuts…"; status.Foreground = Color("#B4A1FF");
+            status.Text = uninstall ? "Waiting for Patchwork to close, then removing program files…" : "Waiting for Patchwork to close, then installing…"; status.Foreground = Color("#B4A1FF");
             try
             {
                 int retained = 0;
-                await Task.Run(() => { if (uninstall) retained = InstallerEngine.Uninstall(root, true); else InstallerEngine.Install(root, shortcut, true); });
+                await Task.Run(() => { if (waitPid > 0) InstallerEngine.WaitForUpdater(waitPid, waitTicks, 30000); if (uninstall) retained = InstallerEngine.Uninstall(root, true); else InstallerEngine.Install(root, shortcut, true); });
                 finished = true; status.Foreground = Color("#85DCC0"); status.Text = uninstall ? "Uninstalled. Backups and history are preserved." + (retained > 0 ? " Modified program files were retained." : "") : "Installed. Patchwork is ready in your Start menu.";
                 action.Content = uninstall ? "Finish" : "Launch Patchwork"; cancel.Content = "Close";
             }
