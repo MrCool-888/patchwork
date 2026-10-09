@@ -1,4 +1,4 @@
-# Patchwork 0.4.0
+# Patchwork 0.4.1
 
 An installable Windows patch manager with separate patch-file imports, previews, verified backups, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -20,7 +20,9 @@ Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the
 
 In **About this build → App updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts/prereleases. Offline or rate-limit failures leave the app usable. Patching itself stays local.
 
-When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files and history remain in your separate data folder. App updates do not fetch or update patch packs.
+When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. Setup releases the inherited working folder and waits for the old app process to exit before replacing files. A custom recognized installation is updated in place. If the app remains open for 30 seconds, setup asks you to close it and retry; it never terminates the process. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files and history remain in your separate data folder. App updates do not fetch or update patch packs.
+
+Version 0.4.1 fixes the Windows “process is being used” update error. Its setup also handles the working-folder lock when launched by older Patchwork versions. If an older setup is still open after an error, close it and run the latest `Patchwork-Setup.exe` from the release page.
 
 ## Backups and recovery
 
