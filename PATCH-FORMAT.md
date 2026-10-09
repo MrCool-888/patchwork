@@ -35,6 +35,10 @@ Additional operations in Patchwork 0.4.0:
 
 Conditional operations use `condition`, a chain of 1–8 complete instance field/property-getter signatures starting at `this` and ending in a boolean. Value-type getters are loaded by address. Each member and receiver type is checked. A false condition selects the alternate behavior; missing/null runtime dependencies are not fabricated. Use `minimumPatcherVersion: "0.4.0"` for packs containing these new operations.
 
+Additional operation in Patchwork 0.4.2:
+
+- `managedOverrideConditionalBooleanSetter`: adds an inherited virtual void(bool) override on `type`, forwards the original argument to the nearest inherited implementation, then invokes boolean `setterMethod` with `value` only when `condition` is true. When false, the inherited result is preserved. The bounded condition chain starts at the derived object. This supports enabling one category of rows while retaining other rows' original restrictions. Requires `minimumPatcherVersion: "0.4.2"`.
+
 Example operation (replace the hash and signature with verified values):
 
 ```json

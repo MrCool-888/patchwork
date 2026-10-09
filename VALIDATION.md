@@ -1,4 +1,4 @@
-# Patchwork 0.4.1 validation
+# Patchwork 0.4.2 validation
 
 Built and checked on Windows x64 on October 9, 2026. All target-file changes and installer tests used workspace copies or generated fixtures.
 
@@ -12,6 +12,8 @@ Production builds exclude all five self-test/fixture files. The installer ZIP co
 
 Three additional scenarios execute conditional redirects, boolean guards, collection projections and generic inherited overrides, reject incompatible definitions, and verify version labels/import replacement/history preservation. Legacy definitions remain usable with Unversioned labels.
 
+Version 0.4.2 extends those fixtures with conditional inherited setter overrides: true conditions change the derived row, false conditions preserve the inherited restriction, and original boolean arguments/child propagation are retained. Empty condition chains and unrelated getter receiver types refuse preview. All 23 scenarios passed after this extension.
+
 ## Installer: 9 checks passed
 
 Checks cover payload extraction, updating a recognized installation, staging rollback, preserving unrelated files/data on uninstall, refusing unrelated installation/uninstallation folders, and Windows shortcut creation/ownership/removal. These used workspace folders and temporary shortcuts. No real installation, Installed Apps registration, Start menu, desktop shortcut, or installed Proton files were changed.
@@ -22,7 +24,7 @@ The UAC worker was tested without elevation on copies. An interactive administra
 
 Checks use the public latest-release API for the fixed patcher repository, require stable semantic version tags, and restrict the installer asset to that repository's release URL. Downloads have HTTPS host/size limits and must match GitHub's SHA-256 metadata before setup is opened. Updates do not download patches. Startup checking can be disabled.
 
-Public release metadata and asset bytes are verified after publication. Node HTTPS verifies the published installer download; the Framework downloader may encounter a certificate trust failure with this workstation's local proxy. TLS verification remains enabled. Verification does not launch an installer or update the user's installation. Checksum verification relies on GitHub repository metadata and is not a publisher signature.
+Public release metadata and asset bytes are verified after publication. Release downloads are compared with the local artifacts; previous release checks also used Node HTTPS. The Framework downloader may encounter a certificate trust failure with this workstation's local proxy. TLS verification remains enabled. Verification does not launch an installer or update the user's installation. Checksum verification relies on GitHub repository metadata and is not a publisher signature.
 
 ## Visual checks
 

@@ -1,4 +1,4 @@
-# Patchwork 0.4.1
+# Patchwork 0.4.2
 
 An installable Windows patch manager with separate patch-file imports, previews, verified backups, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -22,7 +22,7 @@ In **About this build → App updates**, choose **Check for updates**. Patchwork
 
 When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. Setup releases the inherited working folder and waits for the old app process to exit before replacing files. A custom recognized installation is updated in place. If the app remains open for 30 seconds, setup asks you to close it and retry; it never terminates the process. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files and history remain in your separate data folder. App updates do not fetch or update patch packs.
 
-Version 0.4.1 fixes the Windows “process is being used” update error. Its setup also handles the working-folder lock when launched by older Patchwork versions. If an older setup is still open after an error, close it and run the latest `Patchwork-Setup.exe` from the release page.
+Version 0.4.1 fixed the Windows “process is being used” update error. Current setup also handles the working-folder lock when launched by older Patchwork versions. If an older setup is still open after an error, close it and run the latest `Patchwork-Setup.exe` from the release page.
 
 ## Backups and recovery
 
@@ -35,6 +35,8 @@ Apply rechecks fingerprints, saves durable originals/journals, replaces files at
 The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
 
 See [PATCH-FORMAT.md](PATCH-FORMAT.md). Files use declarative operations and contain no scripts, commands, downloads, or executable plugins. Review the author and method preview: matching fingerprints do not establish author trust. App behavior and server entitlements remain subject to the target app's implementation.
+
+Version 0.4.2 adds conditional boolean setter overrides for patch packs that need to change selected rows while preserving the other rows' restrictions. Proton pack 1.2.0 requires this operation. Patch packs remain separate downloads.
 
 ## Build and test
 
