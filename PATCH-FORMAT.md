@@ -8,6 +8,8 @@ A patch needs `id`, `name`, `description`, `operations`, and optionally `categor
 
 For `appId: "proton-vpn"`, `versionFile` must be `ProtonVPN.Client.exe` and available operations must be managed edits. Compatible Proton definitions live in the separate patch repository; the patcher includes none.
 
+Optional bundle `packVersion` and patch `version` use three nonnegative numbers, e.g. `1.1.0`. Missing patch versions inherit the pack version; files without either show **Unversioned**. Optional `minimumPatcherVersion` rejects imports into an older patcher (default `0.3.0`). Patchwork 0.4.0 displays these labels and freezes applied pack/patch versions plus a SHA-256 of the UTF-8 imported definition in each history journal. Keep a bundle ID stable across revisions to replace the imported definition. Restore an applied session before applying a newer pack.
+
 ## Text operations
 
 `jsonSet` supports an existing scalar property in a `.json` object. Fields: `kind`, `file`, `sha256`, `path` (1–16 property names), `expected`, `value`. It rejects missing properties and unexpected values. Arrays are not traversed. JSON is formatted on write; restore preserves original bytes.
@@ -23,6 +25,15 @@ Managed operations target IL-only `.dll` assemblies. Every operation needs `file
 - `managedSuppressCall`: suppresses a void call, preserving argument/receiver evaluation and consuming them correctly. Fields: `calledMethod` and exact `count`. Variable-argument, generic and prefixed calls are unsupported.
 - `managedOverrideBoolean`: adds a boolean getter/method override to `type` (complete derived type name) with boolean `value`. `method` identifies an inherited, virtual, parameterless boolean method in the same assembly. The derived type must not already define that method.
 - `managedOverrideBooleanArgument`: adds an override of an inherited virtual void method with one boolean parameter. It calls the base method with the specified boolean `value`. Fields include the complete derived `type` and base `method` signatures.
+
+Additional operations in Patchwork 0.4.0:
+
+- `managedConditionalCall`: when `condition` is false, redirects `calledMethod` to `replacementMethod`; otherwise preserves the original call. Both must be parameterless instance methods on the same receiver type with identical return types. Requires exact `count`.
+- `managedConditionalBooleanCall`: preserves a parameterless boolean instance call when `condition` is true; otherwise consumes the receiver and returns boolean `value`. Requires `calledMethod` and exact `count`.
+- `managedConditionalProjection`: preserves the original parameterless instance read-only-list getter when `condition` is true. Otherwise calls `sourceMethod` (another getter returning `IReadOnlyList<T>`) and projects its elements into the destination element class. `mappings` has 1–16 objects containing complete `getter` and `setter` signatures with matching types. The destination needs a public parameterless constructor. The backend generates and verifies a bounded LINQ projector; the file contains no executable payload.
+- `managedOverrideBooleanSetter`: adds an inherited virtual void(bool) override on `type`. It forwards the original argument to the nearest inherited implementation, preserving child propagation, then invokes the boolean `setterMethod` on this object with `value`. The derived type must not already implement that method.
+
+Conditional operations use `condition`, a chain of 1–8 complete instance field/property-getter signatures starting at `this` and ending in a boolean. Value-type getters are loaded by address. Each member and receiver type is checked. A false condition selects the alternate behavior; missing/null runtime dependencies are not fabricated. Use `minimumPatcherVersion: "0.4.0"` for packs containing these new operations.
 
 Example operation (replace the hash and signature with verified values):
 

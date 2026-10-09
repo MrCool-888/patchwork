@@ -1,4 +1,4 @@
-# Patchwork 0.3.0
+# Patchwork 0.4.0
 
 An installable Windows patch manager with separate patch-file imports, previews, verified backups, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -29,6 +29,8 @@ Backups, history, imported files, update downloads, and preferences live in `%LO
 Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Network shares, symlinks/junctions, mixed native/managed assemblies, and target files over 8 MB are unsupported. New target-app releases need matching new patch files.
 
 ## Patch files
+
+The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
 
 See [PATCH-FORMAT.md](PATCH-FORMAT.md). Files use declarative operations and contain no scripts, commands, downloads, or executable plugins. Review the author and method preview: matching fingerprints do not establish author trust. App behavior and server entitlements remain subject to the target app's implementation.
 

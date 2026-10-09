@@ -1,14 +1,16 @@
-# Patchwork 0.3.0 validation
+# Patchwork 0.4.0 validation
 
 Built and checked on Windows x64 on October 8, 2026 (local date). All target-file changes and installer tests used workspace copies or generated fixtures.
 
-## App: 19 scenarios passed
+## App: 22 scenarios passed
 
-The test build passed 19 scenarios with zero failures: text/JSON preview, apply, exact restoration, unsupported fingerprints, stale previews, outside edits, dependencies/conflicts, path boundaries, unsupported scripts, rollback after partial failure, interrupted recovery, tampered backups, BOM handling, repeat apply/restore, transaction locking, managed operation runtime execution and signature/type checks, and worker apply/restore boundaries.
+The test build passed 22 scenarios with zero failures: text/JSON preview, apply, exact restoration, unsupported fingerprints, stale previews, outside edits, dependencies/conflicts, path boundaries, unsupported scripts, rollback after partial failure, interrupted recovery, tampered backups, BOM handling, repeat apply/restore, transaction locking, managed operation runtime execution and signature/type checks, and worker apply/restore boundaries.
 
 Four new scenarios cover update version comparison, draft/prerelease exclusion, expected release repository and installer assets, digest/size rejection, tampered and non-executable downloads, and the import-only library. A fresh library contains zero bundles; importing a separate file populates it, reimporting replaces the same ID without duplication, and restarting preserves the import.
 
-Production builds exclude all four self-test/fixture classes. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator, or Proton application binaries. The app has no bundled-patch loader.
+Production builds exclude all five self-test/fixture files. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator, or Proton application binaries. The app has no bundled-patch loader.
+
+Three additional scenarios execute conditional redirects, boolean guards, collection projections and generic inherited overrides, reject incompatible definitions, and verify version labels/import replacement/history preservation. Legacy definitions remain usable with Unversioned labels.
 
 ## Installer: 9 checks passed
 
