@@ -8,7 +8,7 @@ A patch needs `id`, `name`, `description`, `operations`, and optionally `categor
 
 For `appId: "proton-vpn"`, `versionFile` must be `ProtonVPN.Client.exe` and available operations must be managed edits. Compatible Proton definitions live in the separate patch repository; the patcher includes none.
 
-Optional bundle `packVersion` and patch `version` use three nonnegative numbers, e.g. `1.1.0`. Missing patch versions inherit the pack version; files without either show **Unversioned**. Optional `minimumPatcherVersion` rejects imports into an older patcher (default `0.3.0`). Patchwork 0.4.0 displays these labels and freezes applied pack/patch versions plus a SHA-256 of the UTF-8 imported definition in each history journal. Keep a bundle ID stable across revisions to replace the imported definition. Restore an applied session before applying a newer pack.
+Optional bundle `packVersion` and patch `version` use three nonnegative numbers, e.g. `1.1.0`. Missing patch versions inherit the pack version; files without either show **Unversioned**. Optional `minimumPatcherVersion` rejects imports into an older patcher (default `0.3.0`). Patchwork 0.4.0 displays these labels and freezes applied pack/patch versions plus a SHA-256 of the UTF-8 imported definition in each history journal. Keep a bundle ID stable across revisions to replace the imported definition. Patchwork 0.5.0 can update an applied session directly using its verified original backups. Select the desired patches and review the update preview; keep the original fingerprints and bundle ID stable.
 
 ## Text operations
 
@@ -54,4 +54,10 @@ Example operation (replace the hash and signature with verified values):
 
 Identical managed operations shared by two patches merge. Different replacements of one method or one call conflict. A full-body replacement conflicts with call edits in that method. Different call targets in one method can compose. Short branches are expanded before writing. No arbitrary IL, imported code, commands, executable payloads, or downloads are accepted.
 
-Restoration is based on verified original bytes, not inverse operations. Restore before choosing a different patch selection. An updated app needs a new matching pack; changing the version label or bypassing fingerprints is not a compatibility upgrade.
+Restoration is based on verified original bytes, not inverse operations. Patchwork 0.5.0 updates a selection from verified backups without a manual restore, including removing edits no longer selected. An updated app needs a new matching pack; changing the version label or bypassing fingerprints is not a compatibility upgrade.
+
+## GitHub patch sources (0.5.0)
+
+Publish the separate JSON or .patchwork file as a GitHub release asset with a stable filename, a strictly increasing packVersion and GitHub SHA-256 metadata. The app checks the latest 100 releases, takes the newest eligible asset per filename, and supports at most 20 distinct patch files per source. Pre-release inclusion is selectable; drafts are excluded. Source ZIPs and repository files are ignored. No patch payload is bundled in Patchwork.
+
+Source imports replace saved definitions only after integrity and format validation. Different sources cannot own the same bundle ID. Versions never downgrade automatically; changing contents under an existing version refuses replacement. Source checks update the library and do not apply target changes. Already-applied history keeps its original version until a reviewed patch transaction commits.

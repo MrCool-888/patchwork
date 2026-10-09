@@ -1,41 +1,39 @@
-# Patchwork 0.4.2 validation
+# Patchwork 0.5.0 validation
 
-Built and checked on Windows x64 on October 9, 2026. All target-file changes and installer tests used workspace copies or generated fixtures.
+Built and checked on Windows x64 on October 9, 2026. Target-file changes and installer tests used workspace copies or generated fixtures. The user's installed Proton files, account settings, registry and shortcuts were not changed.
 
-## App: 23 scenarios passed
+## App: 34 scenarios passed
 
-The test build passed 23 scenarios with zero failures: text/JSON preview, apply, exact restoration, unsupported fingerprints, stale previews, outside edits, dependencies/conflicts, path boundaries, unsupported scripts, rollback after partial failure, interrupted recovery, tampered backups, BOM handling, repeat apply/restore, transaction locking, managed operation runtime execution and signature/type checks, and worker apply/restore boundaries.
+The test build passed 34 scenarios with zero failures. Existing coverage includes text/JSON and managed-method preview/apply/exact restore; original fingerprints; stale previews and outside edits; dependencies/conflicts; path and operation boundaries; interrupted transactions; corrupted backups; BOM handling; transaction locking; managed signatures and runtime behavior; worker requests; updater metadata/digests; empty libraries; conditional projections/inherited setters; and version labels preserved in history.
 
-Four new scenarios cover update version comparison, draft/prerelease exclusion, expected release repository and installer assets, digest/size rejection, tampered and non-executable downloads, and the import-only library. A fresh library contains zero bundles; importing a separate file populates it, reimporting replaces the same ID without duplication, and restarting preserves the import.
+Source checks cover URL normalization/rejection, persistence, hourly eligibility, stable/pre-release channels, repository and asset URL matching, size/digest/schema rejection, unchanged-asset caching, invalid batch refusal without writes, ownership conflicts, version increases, no automatic downgrade, removal preserving packs/history, and outside catalog edits. The WPF test checks source cards, imported versions, the preserved applied selection, update status, CURRENTLY APPLIED preview label and Update patches button without writing targets. The Windows transport rejects unapproved/insecure hosts, credentials, fragments, nonstandard ports and invalid maximum sizes.
 
-Production builds exclude all five self-test/fixture files. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator, or Proton application binaries. The app has no bundled-patch loader.
+Direct patch update scenarios cover successive versions, removed selections and multiple files; byte-exact final original restore; outside edits, corrupted originals, changed target versions and stale parents; rollback after a partial write; recovery before and after a durable commit; patched version files; old journals without patch IDs; worker update requests; and version-only updates retaining originals.
 
-Three additional scenarios execute conditional redirects, boolean guards, collection projections and generic inherited overrides, reject incompatible definitions, and verify version labels/import replacement/history preservation. Legacy definitions remain usable with Unversioned labels.
+Production builds exclude all seven self-test/fixture files. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator or Proton binaries. The app has no bundled-patch loader.
 
-Version 0.4.2 extends those fixtures with conditional inherited setter overrides: true conditions change the derived row, false conditions preserve the inherited restriction, and original boolean arguments/child propagation are retained. Empty condition chains and unrelated getter receiver types refuse preview. All 23 scenarios passed after this extension.
+## Actual Proton copy upgrade
 
-## Installer: 9 checks passed
+Applied the earlier pack 1.1.0 to a complete workspace copy of Proton Windows 5.1.8.0, retained the older journal format without patch IDs, then upgraded directly to pack 1.2.0 without manually restoring first. The six tracked assemblies matched the new preview hashes; the previous journal became Superseded and the new version became Applied. Preview left targets unchanged.
 
-Checks cover payload extraction, updating a recognized installation, staging rollback, preserving unrelated files/data on uninstall, refusing unrelated installation/uninstallation folders, and Windows shortcut creation/ownership/removal. These used workspace folders and temporary shortcuts. No real installation, Installed Apps registration, Start menu, desktop shortcut, or installed Proton files were changed.
+After the direct upgrade, the copied assemblies passed 34 free-selector checks, 13 settings/Accelerator checks and 19 earlier method checks under .NET 8, using in-memory fixtures (66 checks total). Restoring the new session recovered all six exact original fingerprints. A separate actual WPF upgrade preview was rendered against the earlier applied pack and then that copy was restored.
 
-The UAC worker was tested without elevation on copies. An interactive administrator apply was not performed. Mono.Cecil's compatibility patch and rebuild script compiled successfully from a clean 0.11.6 source archive during the previous build.
+## Live GitHub downloads
 
-## GitHub updater
+The production source downloader fetched the real public patchwork-patches releases, downloaded pack 1.2.0, verified its size and GitHub SHA-256 digest, imported it, and skipped the unchanged patch asset on the next check. The production app updater queried the public latest patcher release and downloaded its installer with exact size/hash verification; no installer was launched by this check.
 
-Checks use the public latest-release API for the fixed patcher repository, require stable semantic version tags, and restrict the installer asset to that repository's release URL. Downloads have HTTPS host/size limits and must match GitHub's SHA-256 metadata before setup is opened. Updates do not download patches. Startup checking can be disabled.
+HTTPS uses native Windows WinHTTP, the default Windows proxy configuration, TLS 1.2, normal certificate validation, bounded timeouts and streamed size limits. Redirects are validated explicitly against GitHub download hosts; cookies and automatic authentication are disabled. This replaced the older Framework transport that failed with this workstation's proxy. Certificate validation was never bypassed. Checksums use GitHub metadata and are not publisher code signatures.
 
-Public release metadata and asset bytes are verified after publication. Release downloads are compared with the local artifacts; previous release checks also used Node HTTPS. The Framework downloader may encounter a certificate trust failure with this workstation's local proxy. TLS verification remains enabled. Verification does not launch an installer or update the user's installation. Checksum verification relies on GitHub repository metadata and is not a publisher signature.
+## Installer and update locks
 
-## Visual checks
+The installer passed nine checks for payload extraction, replacing a recognized installation, staging rollback, preserving unrelated files/data, rejecting unrelated roots, and temporary shortcut ownership/removal. The separate source/installer/UpdateTests.cs runner passed ten real-process/filesystem checks: exact process start time, exited/reused process identity, bounded waits without termination, older updater callers, releasing the working-directory lock, refusing replacement under a file lock while retaining the old installation, and succeeding after the lock is released.
 
-Rendered the actual WPF empty library, imported Proton catalog, managed-method preview, minimum-size library, updater panel, and setup. Patch definitions remain in the separate patch repository. The Proton pack's earlier file-transformation and isolated method results are documented there.
+These checks used workspace folders and temporary shortcuts. Live replacement of the user's Patchwork installation and interactive administrator/UAC patch application were not performed. The worker was tested without elevation on copies. Mono.Cecil's compatibility rebuild was validated in the earlier release.
 
-## Update locks: 10 checks passed
+## Visual checks and limits
 
-The separate `source/installer/UpdateTests.cs` runner passed ten real-process and filesystem checks. It verified the exact originating process start time, an already-exited process, a reused PID identity, bounded timeouts without terminating a process, and waiting for the matching installed app for older updater callers. Windows reproduced a directory rename failure with the installation as the process working folder; setup released that folder and updated successfully. A file lock refused replacement while retaining the old installation, and retrying after releasing the lock succeeded. These checks did not modify a live installation, registry, user shortcuts, imported packs, or backups.
+Rendered the actual WPF source page at normal and minimum window sizes and an applied-Proton upgrade preview. Earlier releases also checked the empty library, imported catalog, updater, method preview and setup.
 
-The app scenario additionally checks that setup starts from its download directory, passes the originating PID/start time, and preserves a custom recognized install location. Both new and older updater callers receive the setup-side working-directory fix. Live in-app replacement of the user's installation was not performed.
+Automatic source checks update saved definitions only; the user previews and applies target changes explicitly. Exact original fingerprints and a verified applied journal remain required for direct updates. New target-app releases need matching new packs. Multiple legacy applied sessions in one folder require restore first.
 
-## Limits
-
-The work does not validate a live Proton VPN session, DNS leak protection, NetShield filtering, LAN reachability, split routing/kill-switch behavior, profile connections, or server entitlements. Windows 5.1.8's authenticated connection credentials prevent a working no-sign-in patch using only a login-screen edit; no such patch is distributed.
+No live Proton sign-in, VPN tunnel, Accelerator throughput, DNS leak protection, NetShield filtering, LAN reachability, split routing, profiles or server entitlement was tested. Guest/no-sign-in sessions are not implemented in the separate Windows patch pack. Patches remain in their separate repository.
