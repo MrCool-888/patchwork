@@ -13,16 +13,15 @@ namespace Patchwork
     {
         public static bool Parse(PatchOperation op, Dictionary<string, object> raw)
         {
-            if (op.Kind == "managedOverrideBooleanSetter")
+            if (op.Kind == "managedOverrideBooleanSetter" || op.Kind == "managedOverrideConditionalBooleanSetter")
             {
                 op.Type = Json.String(raw, "type"); op.SetterMethod = Json.String(raw, "setterMethod");
                 if (!raw.TryGetValue("value", out op.Value) || !(op.Value is bool)) throw new InvalidDataException("Boolean setter override needs a boolean value.");
+                if (op.Kind == "managedOverrideConditionalBooleanSetter") ParseCondition(op, raw);
                 return true;
             }
             if (op.Kind != "managedConditionalCall" && op.Kind != "managedConditionalBooleanCall" && op.Kind != "managedConditionalProjection") return false;
-            var chain = Json.Array(raw, "condition");
-            if (chain.Count < 1 || chain.Count > 8 || chain.Any(x => !(x is string) || ((string)x).Length > 2048)) throw new InvalidDataException("Conditions need 1 to 8 field/getter signatures.");
-            op.Condition = chain.Cast<string>().ToList();
+            ParseCondition(op, raw);
             if (op.Kind == "managedConditionalCall" || op.Kind == "managedConditionalBooleanCall")
             {
                 op.CalledMethod = Json.String(raw, "calledMethod");
@@ -44,6 +43,12 @@ namespace Patchwork
                 }
             }
             return true;
+        }
+        static void ParseCondition(PatchOperation op, Dictionary<string, object> raw)
+        {
+            var chain = Json.Array(raw, "condition");
+            if (chain.Count < 1 || chain.Count > 8 || chain.Any(x => !(x is string) || ((string)x).Length > 2048)) throw new InvalidDataException("Conditions need 1 to 8 field/getter signatures.");
+            op.Condition = chain.Cast<string>().ToList();
         }
         static TypeDefinition Type(ModuleDefinition module, string name)
         {
@@ -195,14 +200,22 @@ namespace Patchwork
             var replacement = new MethodDefinition(method.Name, MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig, module.TypeSystem.Void);
             replacement.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, module.TypeSystem.Boolean));
             replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0)); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_1)); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Call, inherited));
-            replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0)); replacement.Body.Instructions.Add(Instruction.Create((bool)op.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Call, module.ImportReference(setter))); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
-            type.Methods.Add(replacement); touched.Add(replacement);
+            // Attach before validating the condition so its receiver is the actual derived type.
+            type.Methods.Add(replacement);
+            var end = Instruction.Create(OpCodes.Ret);
+            if (op.Kind == "managedOverrideConditionalBooleanSetter")
+            {
+                foreach (var instruction in Condition(module, replacement, op)) replacement.Body.Instructions.Add(instruction);
+                replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Brfalse, end));
+            }
+            replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0)); replacement.Body.Instructions.Add(Instruction.Create((bool)op.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Call, module.ImportReference(setter))); replacement.Body.Instructions.Add(end);
+            touched.Add(replacement);
         }
         public static bool Transform(ModuleDefinition module, MethodDefinition method, PatchOperation op, List<MethodDefinition> touched, StringBuilder before)
         {
             if (op.Kind == "managedConditionalCall" || op.Kind == "managedConditionalBooleanCall") ConditionalCall(module, method, op);
             else if (op.Kind == "managedConditionalProjection") Projection(module, method, op, touched);
-            else if (op.Kind == "managedOverrideBooleanSetter") SetterOverride(module, method, op, touched, before);
+            else if (op.Kind == "managedOverrideBooleanSetter" || op.Kind == "managedOverrideConditionalBooleanSetter") SetterOverride(module, method, op, touched, before);
             else return false;
             return true;
         }

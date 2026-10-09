@@ -11,7 +11,7 @@ namespace Patchwork
     // Patch files describe a small set of IL edits; they cannot supply code, assemblies or commands.
     public static class ManagedPatches
     {
-        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter" };
+        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter", "managedOverrideConditionalBooleanSetter" };
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
             if (!Kinds.Contains(op.Kind)) throw new InvalidDataException("Unknown operation: " + op.Kind);
@@ -78,7 +78,7 @@ namespace Patchwork
                     if (matches.Count != 1) throw new InvalidDataException("Managed method signature did not match exactly: " + op.Method);
                     var method = matches[0];
                     if (!method.HasBody) throw new InvalidDataException("Cannot edit a method without IL: " + op.Method);
-                    bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument" || op.Kind == "managedOverrideBooleanSetter";
+                    bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument" || op.Kind == "managedOverrideBooleanSetter" || op.Kind == "managedOverrideConditionalBooleanSetter";
                     string key = isOverride ? op.Type + "::" + method.Name : method.FullName;
                     if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || isOverride)
                     {

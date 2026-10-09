@@ -33,6 +33,7 @@ namespace Patchwork
     }
     public class SelectorGeneric<T> : SelectorParent { public bool Propagated; public override void Accept(bool value) { Propagated = value; base.Accept(value); } }
     public class SelectorChild : SelectorGeneric<int> { }
+    public class ConditionalSelectorChild : SelectorGeneric<int> { public bool Free { get; set; } }
     public static class SelectorTests
     {
         static void Assert(bool value) { if (!value) throw new Exception("Selector transformation failed."); }
@@ -57,6 +58,7 @@ namespace Patchwork
                     new Dictionary<string, object> { { "getter", method("SelectorInput", "get_Offline") }, { "setter", method("SelectorOutput", "set_Offline") } }
                 } });
                 add("managedOverrideBooleanSetter", "SelectorParent", "Accept", new object[] { "type", "Patchwork.SelectorChild", "setterMethod", method("SelectorParent", "set_Restricted"), "value", false });
+                add("managedOverrideConditionalBooleanSetter", "SelectorParent", "Accept", new object[] { "type", "Patchwork.ConditionalSelectorChild", "setterMethod", method("SelectorParent", "set_Restricted"), "value", false, "condition", new[] { method("ConditionalSelectorChild", "get_Free") } });
             }
             return Parse(root, ops);
         }
@@ -83,11 +85,20 @@ namespace Patchwork
             var childType = assembly.GetType("Patchwork.SelectorChild"); var child = Activator.CreateInstance(childType); childType.GetMethod("Accept").Invoke(child, new object[] { false });
             Assert(!(bool)childType.GetProperty("Restricted").GetValue(child) && !(bool)childType.GetField("Captured").GetValue(child) && !(bool)childType.GetField("Propagated").GetValue(child));
             childType.GetMethod("Accept").Invoke(child, new object[] { true }); Assert((bool)childType.GetField("Captured").GetValue(child) && (bool)childType.GetField("Propagated").GetValue(child));
+            var conditionalType = assembly.GetType("Patchwork.ConditionalSelectorChild"); var conditional = Activator.CreateInstance(conditionalType);
+            conditionalType.GetMethod("Accept").Invoke(conditional, new object[] { false }); Assert((bool)conditionalType.GetProperty("Restricted").GetValue(conditional));
+            conditionalType.GetProperty("Free").SetValue(conditional, true); conditionalType.GetMethod("Accept").Invoke(conditional, new object[] { false });
+            Assert(!(bool)conditionalType.GetProperty("Restricted").GetValue(conditional) && !(bool)conditionalType.GetField("Propagated").GetValue(conditional));
+            conditionalType.GetProperty("Free").SetValue(conditional, false); conditionalType.GetMethod("Accept").Invoke(conditional, new object[] { true });
+            Assert(!(bool)conditionalType.GetProperty("Restricted").GetValue(conditional) && (bool)conditionalType.GetField("Propagated").GetValue(conditional));
             var journal = engine.Apply(plan); engine.Restore(journal); Assert(PatchEngine.Hash(File.ReadAllBytes(Path.Combine(root, "Fixture.dll"))) == plan.Files.Single().BeforeHash);
         }
         public static void Rejections(string root)
         {
             root = Path.Combine(root, "selector-rejections"); List<Dictionary<string, object>> ops; var bundle = Fixture(root, out ops); var engine = new PatchEngine(Path.Combine(root, "data"));
+            var conditional = ops.Last(); conditional["condition"] = new string[0]; Reject(() => Parse(root, ops));
+            conditional["condition"] = new[] { "System.String Patchwork.SelectorInput::get_Code()" }; Reject(() => engine.Preview(Parse(root, ops), root, new[] { "selector" }));
+            conditional["condition"] = new[] { "System.Boolean Patchwork.ConditionalSelectorChild::get_Free()" };
             ops[0]["count"] = 2; Reject(() => engine.Preview(Parse(root, ops), root, new[] { "selector" })); ops[0]["count"] = 1;
             ops[0]["replacementMethod"] = "System.Boolean Patchwork.SelectorSource::get_Enabled()"; Reject(() => engine.Preview(Parse(root, ops), root, new[] { "selector" }));
             ops[0]["condition"] = new[] { "Patchwork.SelectorSource Patchwork.SelectorHost::Source" }; Reject(() => engine.Preview(Parse(root, ops), root, new[] { "selector" }));
