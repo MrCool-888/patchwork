@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -22,6 +23,21 @@ namespace Patchwork
         public static Version InstalledVersion { get { return Assembly.GetExecutingAssembly().GetName().Version; } }
         public static string DisplayVersion { get { return InstalledVersion.ToString(3); } }
         const int MaximumInstaller = 16 * 1024 * 1024;
+
+        public static ProcessStartInfo SetupStartInfo(string installer, string appRoot, int processId, long startTicks)
+        {
+            installer = Path.GetFullPath(installer);
+            appRoot = Path.GetFullPath(appRoot).TrimEnd(Path.DirectorySeparatorChar);
+            if (processId <= 0 || startTicks <= 0) throw new ArgumentException("Invalid update process identity.");
+            // Never let setup inherit an installation directory that it must rename.
+            string folder = Path.GetDirectoryName(installer);
+            if (folder.Equals(appRoot, StringComparison.OrdinalIgnoreCase) || folder.StartsWith(appRoot + "\\", StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The update installer must be outside the program folder.");
+            string args = "--wait-for-process " + processId + " --wait-for-start-ticks " + startTicks;
+            // Setup independently checks this marker before replacing an existing folder.
+            if (File.Exists(Path.Combine(appRoot, "patchwork-install.json"))) args += " --install-root \"" + appRoot + "\"";
+            return new ProcessStartInfo(installer, args) { UseShellExecute = true, WorkingDirectory = folder };
+        }
 
         public static AppRelease Check()
         {

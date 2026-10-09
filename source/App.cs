@@ -182,7 +182,8 @@ namespace Patchwork
             {
                 string installer = await Task.Run(() => Updates.Download(release, engine.DataRoot));
                 // A recognized installation can only update after the running app closes.
-                Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
+                using (var current = Process.GetCurrentProcess())
+                    Process.Start(Updates.SetupStartInfo(installer, AppDomain.CurrentDomain.BaseDirectory, current.Id, current.StartTime.ToUniversalTime().Ticks));
                 SetBusy(false); window.Close();
             }
             catch (Exception error)

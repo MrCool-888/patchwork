@@ -124,6 +124,7 @@ namespace Patchwork
             Test("Updates compare versions and exclude draft/prerelease releases", () => UpdaterTests.Versions());
             Test("Updates reject unexpected repositories, assets, digests and sizes", () => UpdaterTests.UntrustedAssets());
             Test("Installer download verification rejects tampering and non-executables", () => UpdaterTests.Tampering());
+            Test("Update setup releases its working folder and passes the old process identity", () => UpdaterTests.SetupHandoff(root));
             Test("Fresh library is empty; separate imports persist without duplication", () => UpdaterTests.ImportOnly(root));
             Test("Conditional selectors, projections and generic inherited overrides execute and restore", () => SelectorTests.Runtime(root));
             Test("Selectors reject invalid conditions, signatures, call counts and mappings", () => SelectorTests.Rejections(root));

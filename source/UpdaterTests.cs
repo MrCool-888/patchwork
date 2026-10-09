@@ -51,6 +51,21 @@ namespace Patchwork
             byte[] text = Encoding.ASCII.GetBytes("not an executable"); release.Size = text.Length; release.Sha256 = PatchEngine.Hash(text);
             Reject(() => Updates.Verify(release, text));
         }
+        public static void SetupHandoff(string root)
+        {
+            root = Path.GetFullPath(root);
+            string app = Path.Combine(root, "custom program folder"); Directory.CreateDirectory(app);
+            string download = Path.Combine(root, "downloads", "Patchwork-Setup.exe");
+            File.WriteAllText(Path.Combine(app, "patchwork-install.json"), "test marker");
+            var start = Updates.SetupStartInfo(download, app, 42, 123456);
+            Assert(start.FileName == download && start.WorkingDirectory == Path.GetDirectoryName(download) && start.UseShellExecute);
+            Assert(start.Arguments == "--wait-for-process 42 --wait-for-start-ticks 123456 --install-root \"" + app + "\"");
+            File.Delete(Path.Combine(app, "patchwork-install.json"));
+            Assert(!Updates.SetupStartInfo(download, app, 42, 123456).Arguments.Contains("--install-root"));
+            try { Updates.SetupStartInfo(Path.Combine(app, "updates", "Setup.exe"), app, 42, 123456); }
+            catch (IOException) { return; }
+            throw new Exception("Setup was allowed to pin its own installation folder.");
+        }
         public static void ImportOnly(string root)
         {
             string data = Path.Combine(root, "import-only");
