@@ -1,0 +1,6 @@
+*.cs text eol=lf
+*.ps1 text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.dll binary
+*.ico binary

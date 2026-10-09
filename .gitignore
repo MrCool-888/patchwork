@@ -1,0 +1,16 @@
+build/
+build-*/
+test-data/
+bin/
+obj/
+*.pdb
+*.user
+*.suo
+.env*
+*.patchwork.json
+backups/
+jobs/
+recipes/
+updates/
+settings.json
+update-settings.json
