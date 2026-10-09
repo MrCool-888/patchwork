@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+namespace Patchwork
+{
+    public static class SelfTests
+    {
+        static int passed, failed;
+        public static int Run(string dataRoot)
+        {
+            Directory.CreateDirectory(dataRoot);
+            string root = Path.Combine(dataRoot, "test-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+            Test("All demo patches preview, apply, and restore byte-for-byte", delegate {
+                string data = Path.Combine(root, "roundtrip"); var engine = new PatchEngine(data);
+                string target = TestFixtures.CreateDemo(data); var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe());
+                byte[] before = File.ReadAllBytes(Path.Combine(target, "settings.json"));
+                var plan = engine.Preview(bundle, target, bundle.Patches.Select(x => x.Id));
+                Assert(plan.Files.Count == 1 && plan.PatchIds.Count == 4, "Unexpected demo plan.");
+                Assert(File.ReadAllBytes(Path.Combine(target, "settings.json")).SequenceEqual(before), "Preview wrote target files.");
+                var journal = engine.Apply(plan);
+                var config = Json.Parse(File.ReadAllText(Path.Combine(target, "settings.json")));
+                Assert((string)Json.Object(config["appearance"])["theme"] == "midnight", "Theme not applied.");
+                Assert((bool)Json.Object(config["privacy"])["telemetry"] == false, "Telemetry not changed.");
+                Assert((bool)Json.Object(config["interface"])["showPromotions"] == false, "Promotions not changed.");
+                Assert(journal.State == "Applied" && engine.History().Count == 1, "History missing.");
+                engine.Restore(engine.History()[0]);
+                Assert(File.ReadAllBytes(Path.Combine(target, "settings.json")).SequenceEqual(before), "Original bytes not restored.");
+                Assert(engine.History()[0].State == "Restored", "Restore not journaled.");
+            });
+            Test("Unsupported file fingerprints refuse preview", delegate {
+                string data = Path.Combine(root, "unsupported"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                File.AppendAllText(Path.Combine(target, "settings.json"), " ");
+                ExpectFailure(() => engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" }), "modified");
+                Assert(engine.History().Count == 0, "Invalid preview created a transaction.");
+            });
+            Test("Files changed after preview refuse apply", delegate {
+                string data = Path.Combine(root, "stale"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var plan = engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" });
+                File.AppendAllText(Path.Combine(target, "settings.json"), " ");
+                byte[] changed = File.ReadAllBytes(Path.Combine(target, "settings.json"));
+                ExpectFailure(() => engine.Apply(plan), "after preview");
+                Assert(File.ReadAllBytes(Path.Combine(target, "settings.json")).SequenceEqual(changed), "Stale apply wrote files.");
+            });
+            Test("Restore refuses to overwrite outside edits", delegate {
+                string data = Path.Combine(root, "outside"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var journal = engine.Apply(engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" }));
+                File.AppendAllText(Path.Combine(target, "settings.json"), " "); byte[] changed = File.ReadAllBytes(Path.Combine(target, "settings.json"));
+                ExpectFailure(() => engine.Restore(journal), "changed outside");
+                Assert(File.ReadAllBytes(Path.Combine(target, "settings.json")).SequenceEqual(changed), "External edits were overwritten.");
+                Assert(engine.History()[0].State == "Applied", "Blocked restore changed transaction state.");
+            });
+            Test("Dependencies, conflicts, and overlapping mutations are rejected", delegate {
+                string data = Path.Combine(root, "conflicts"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe()); bundle.Patches[0].Dependencies.Add("violet-accent");
+                ExpectFailure(() => engine.Preview(bundle, target, new[] { "midnight-theme" }), "requires");
+                bundle.Patches[0].Dependencies.Clear(); bundle.Patches[0].Conflicts.Add("violet-accent");
+                ExpectFailure(() => engine.Preview(bundle, target, new[] { "midnight-theme", "violet-accent" }), "Conflicting");
+                bundle.Patches[0].Conflicts.Clear(); bundle.Patches[1].Operations[0].Path = bundle.Patches[0].Operations[0].Path;
+                ExpectFailure(() => engine.Preview(bundle, target, new[] { "midnight-theme", "violet-accent" }), "same JSON");
+            });
+            Test("Path traversal, invalid text targets, scripts, and false Proton claims are rejected", delegate {
+                ExpectFailure(() => PatchEngine.Resolve(root, "../escape.json"), "Unsafe");
+                ExpectFailure(() => PatchEngine.Resolve(root, "C:\\escape.json"), "relative");
+                ExpectFailure(() => PatchEngine.Resolve(root, "settings.json:stream"), "relative");
+                string recipe = TestFixtures.DemoRecipe();
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"app.exe\"")), "Only UTF-8");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"patchwork-sandbox\"", "\"proton-vpn\"")), "fingerprint ProtonVPN.Client.exe");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"jsonSet\"", "\"runCommand\"")), "Unknown operation");
+            });
+            Test("Multi-file failure rolls back already-written files", delegate {
+                string data = Path.Combine(root, "rollback"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                string css = "body { color: red; }\r\n"; File.WriteAllText(Path.Combine(target, "theme.css"), css, new UTF8Encoding(false));
+                var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe());
+                bundle.Patches[0].Operations.Add(new PatchOperation { Kind = "textReplace", File = "theme.css", Sha256 = PatchEngine.Hash(Encoding.UTF8.GetBytes(css)), Find = "red", Replacement = "violet", Count = 1 });
+                var plan = engine.Preview(bundle, target, new[] { "midnight-theme" });
+                engine.BeforeWriteForTest = index => { if (index == 1) throw new IOException("Simulated interrupted write"); };
+                ExpectFailure(() => engine.Apply(plan), "Original files were restored");
+                Assert(File.ReadAllText(Path.Combine(target, "settings.json")) == TestFixtures.DemoConfig, "First file was not rolled back.");
+                Assert(File.ReadAllText(Path.Combine(target, "theme.css")) == css, "Second file changed.");
+                Assert(engine.History()[0].State == "RolledBack", "Rollback state missing.");
+            });
+            Test("Prepared journals recover without overwriting unrelated files", delegate {
+                string data = Path.Combine(root, "recovery"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var journal = engine.Apply(engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" }));
+                journal.State = "Prepared"; File.WriteAllText(Path.Combine(journal.DirectoryPath, "journal.json"), Json.Pretty(journal));
+                engine.Restore(engine.History()[0]);
+                Assert(File.ReadAllText(Path.Combine(target, "settings.json")) == TestFixtures.DemoConfig, "Recovery failed.");
+            });
+            Test("Tampered backups refuse restoration", delegate {
+                string data = Path.Combine(root, "backup-corrupt"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var journal = engine.Apply(engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" }));
+                File.AppendAllText(Path.Combine(journal.DirectoryPath, journal.Files[0].BackupFile), " ");
+                ExpectFailure(() => engine.Restore(journal), "Backup fingerprint mismatch");
+            });
+            Test("UTF-8 BOM and exact text replacement round-trip", delegate {
+                string data = Path.Combine(root, "bom"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                byte[] original = new byte[] { 0xef, 0xbb, 0xbf }.Concat(Encoding.UTF8.GetBytes("hello world\r\n")).ToArray();
+                File.WriteAllBytes(Path.Combine(target, "hello.txt"), original);
+                var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe()); bundle.Patches[0].Operations.Clear();
+                var operation = new PatchOperation { Kind = "textReplace", File = "hello.txt", Sha256 = PatchEngine.Hash(original), Find = "world", Replacement = "Patchwork", Count = 1 }; bundle.Patches[0].Operations.Add(operation);
+                var plan = engine.Preview(bundle, target, new[] { "midnight-theme" });
+                Assert(plan.Files[0].AfterBytes[0] == 0xef, "BOM not retained.");
+                operation.Count = 2; ExpectFailure(() => engine.Preview(bundle, target, new[] { "midnight-theme" }), "text matches");
+                var journal = engine.Apply(plan); engine.Restore(journal);
+                Assert(File.ReadAllBytes(Path.Combine(target, "hello.txt")).SequenceEqual(original), "BOM round-trip changed bytes.");
+            });
+            Test("Already-patched targets and repeated restores are refused", delegate {
+                string data = Path.Combine(root, "idempotency"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data); var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe());
+                var journal = engine.Apply(engine.Preview(bundle, target, new[] { "midnight-theme" }));
+                ExpectFailure(() => engine.Preview(bundle, target, new[] { "midnight-theme" }), "already modified");
+                engine.Restore(journal); ExpectFailure(() => engine.Restore(journal), "already been restored");
+            });
+            Test("Concurrent app instance cannot start a transaction", delegate {
+                string data = Path.Combine(root, "lock"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
+                var plan = engine.Preview(PatchBundle.Parse(TestFixtures.DemoRecipe()), target, new[] { "midnight-theme" });
+                using (var stream = new FileStream(Path.Combine(data, "transaction.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)) ExpectFailure(() => engine.Apply(plan), "Another Patchwork");
+            });
+            Test("Managed operations execute correctly and DLLs restore exactly", () => ManagedTests.RuntimeRoundTrip(root));
+            Test("Managed signatures, call counts, value types and conflicts are enforced", () => ManagedTests.Rejections(root));
+            Test("Worker apply/restore, stale preview and request boundaries", () => ManagedTests.WorkerRequests(root));
+            Test("Updates compare versions and exclude draft/prerelease releases", () => UpdaterTests.Versions());
+            Test("Updates reject unexpected repositories, assets, digests and sizes", () => UpdaterTests.UntrustedAssets());
+            Test("Installer download verification rejects tampering and non-executables", () => UpdaterTests.Tampering());
+            Test("Fresh library is empty; separate imports persist without duplication", () => UpdaterTests.ImportOnly(root));
+            string result = passed + " passed; " + failed + " failed.\r\n";
+            Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
+            return failed == 0 ? 0 : 1;
+        }
+        static void Test(string name, Action action)
+        {
+            try { action(); passed++; Console.WriteLine("PASS " + name); }
+            catch (Exception error) { failed++; Console.WriteLine("FAIL " + name + ": " + error); }
+        }
+        static void Assert(bool okay, string message) { if (!okay) throw new Exception(message); }
+        static void ExpectFailure(Action action, string expected)
+        {
+            try { action(); }
+            catch (Exception error) { if (error.Message.IndexOf(expected, StringComparison.OrdinalIgnoreCase) >= 0) return; throw new Exception("Expected '" + expected + "', got: " + error.Message); }
+            throw new Exception("Expected rejection: " + expected);
+        }
+    }
+}
