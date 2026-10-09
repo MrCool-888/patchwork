@@ -1,22 +1,22 @@
-# Patchwork 0.5.0 validation
+# Patchwork 0.6.0 validation
 
 Built and checked on Windows x64 on October 9, 2026. Target-file changes and installer tests used workspace copies or generated fixtures. The user's installed Proton files, account settings, registry and shortcuts were not changed.
 
-## App: 34 scenarios passed
+## App: 37 scenarios passed
 
-The test build passed 34 scenarios with zero failures. Existing coverage includes text/JSON and managed-method preview/apply/exact restore; original fingerprints; stale previews and outside edits; dependencies/conflicts; path and operation boundaries; interrupted transactions; corrupted backups; BOM handling; transaction locking; managed signatures and runtime behavior; worker requests; updater metadata/digests; empty libraries; conditional projections/inherited setters; and version labels preserved in history.
+The test build passed 37 scenarios with zero failures. Existing coverage includes text/JSON and managed-method preview/apply/exact restore; original fingerprints; stale previews and outside edits; dependencies/conflicts; path and operation boundaries; interrupted transactions; corrupted backups; BOM handling; transaction locking; managed signatures and runtime behavior; worker requests; updater metadata/digests; empty libraries; conditional projections/inherited setters; and version labels preserved in history.
 
 Source checks cover URL normalization/rejection, persistence, hourly eligibility, stable/pre-release channels, repository and asset URL matching, size/digest/schema rejection, unchanged-asset caching, invalid batch refusal without writes, ownership conflicts, version increases, no automatic downgrade, removal preserving packs/history, and outside catalog edits. The WPF test checks source cards, imported versions, the preserved applied selection, update status, CURRENTLY APPLIED preview label and Update patches button without writing targets. The Windows transport rejects unapproved/insecure hosts, credentials, fragments, nonstandard ports and invalid maximum sizes.
 
 Direct patch update scenarios cover successive versions, removed selections and multiple files; byte-exact final original restore; outside edits, corrupted originals, changed target versions and stale parents; rollback after a partial write; recovery before and after a durable commit; patched version files; old journals without patch IDs; worker update requests; and version-only updates retaining originals.
 
-Production builds exclude all seven self-test/fixture files. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator or Proton binaries. The app has no bundled-patch loader.
+Production builds exclude all eight self-test/fixture files. The installer ZIP contains exactly seven application/library/guide files, with no patch packs, recipes, patch generator or Proton binaries. The app has no bundled-patch loader.
 
 ## Actual Proton copy upgrade
 
-Applied the earlier pack 1.1.0 to a complete workspace copy of Proton Windows 5.1.8.0, retained the older journal format without patch IDs, then upgraded directly to pack 1.2.0 without manually restoring first. The six tracked assemblies matched the new preview hashes; the previous journal became Superseded and the new version became Applied. Preview left targets unchanged.
+Applied the earlier pack 1.2.0 to a complete workspace copy of Proton Windows 5.1.8.0, retained the older journal format without patch IDs, then upgraded directly to pack 1.3.0 without manually restoring first. The six tracked assemblies matched the new preview hashes; the previous journal became Superseded and the new version became Applied. Preview left targets unchanged.
 
-After the direct upgrade, the copied assemblies passed 34 free-selector checks, 13 settings/Accelerator checks and 19 earlier method checks under .NET 8, using in-memory fixtures (66 checks total). Restoring the new session recovered all six exact original fingerprints. A separate actual WPF upgrade preview was rendered against the earlier applied pack and then that copy was restored.
+After the direct upgrade, the copied assemblies passed 40 free-selector checks, 13 settings/Accelerator checks and 19 earlier method checks under .NET 8, using in-memory fixtures (72 method checks total). Restoring the new session recovered all six exact original fingerprints. A separate actual WPF upgrade preview was rendered against the earlier applied pack and then that copy was restored.
 
 ## Live GitHub downloads
 
@@ -37,3 +37,7 @@ Rendered the actual WPF source page at normal and minimum window sizes and an ap
 Automatic source checks update saved definitions only; the user previews and applies target changes explicitly. Exact original fingerprints and a verified applied journal remain required for direct updates. New target-app releases need matching new packs. Multiple legacy applied sessions in one folder require restore first.
 
 No live Proton sign-in, VPN tunnel, Accelerator throughput, DNS leak protection, NetShield filtering, LAN reachability, split routing, profiles or server entitlement was tested. Guest/no-sign-in sessions are not implemented in the separate Windows patch pack. Patches remain in their separate repository.
+
+## Color and WinUI operations
+
+Three new app scenarios test composed theme resources and generated-hook execution, normalized color choices, direct color updates, history persistence and exact restore; rejected XAML/color injection, unknown/unselected options, invalid resource keys/types/themes and resource conflicts; worker option freezing/tamper refusal and actual WPF preference fields. The separate pack probes verified 74 resources with the real WinUI XamlReader and five effective brush lookups. Full Proton page rendering remains untested. Guest compatibility was attempted against Proton’s API and rejected for Windows; the transient session was revoked.

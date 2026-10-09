@@ -1,4 +1,4 @@
-# Patchwork 0.5.0
+# Patchwork 0.6.0
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -12,7 +12,7 @@ Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the
 1. Open Patchwork. A new installation starts with an empty library.
 2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled for the experimental Proton packs. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
 3. Choose the matching app folder. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
-4. Select patches and choose **Preview changes**. Review the before/after content or assembly methods. Importing and previewing do not change target files.
+4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
 6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **History & restore** still restores the original files when you want to remove the patches.
 
@@ -48,6 +48,10 @@ Backups, history, imported files, sources, update downloads, and preferences liv
 
 Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Network shares, symlinks/junctions, mixed native/managed assemblies, and target files over 8 MB are unsupported. New target-app releases need matching new patch files.
 
+## Color options (0.6.0)
+
+Selected appearance patches can expose color fields and a **Choose…** color picker. Colors use #RRGGBB. Preferences persist separately from imported patch definitions, so source updates retain them. Preview embeds the selected colors in the generated resources; apply, elevated worker requests and history keep the exact choices. Changing colors and previewing an already-patched app updates it directly from verified originals. Invalid or incomplete colors block preview.
+
 ## Patch files
 
 The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
@@ -70,3 +74,5 @@ No SDK or NuGet download is required; use the Windows .NET Framework 4.x compile
 Self-test fixtures compile only with `-Tests` and are excluded from the installer. Production builds contain no demo recipes or Proton patch definitions. The installer contains only the app, Mono.Cecil, and guides. `--data-dir PATH` isolates testing. `--import-patch FILE` imports the same external file as the GUI and then opens the app.
 
 See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
+
+Version 0.6.0 adds bounded enumerable filter/factory and WinUI color/brush resource operations. Proton pack 1.3.0 uses these for country expansion into individual free servers, AMOLED backgrounds, custom accent colors and custom switch colors. Update Patchwork before importing that pack. Guest sessions remain unavailable because Proton rejected the Windows credentialless compatibility probe. See the separate patch repository for evidence.

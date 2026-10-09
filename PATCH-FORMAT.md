@@ -61,3 +61,22 @@ Restoration is based on verified original bytes, not inverse operations. Patchwo
 Publish the separate JSON or .patchwork file as a GitHub release asset with a stable filename, a strictly increasing packVersion and GitHub SHA-256 metadata. The app checks the latest 100 releases, takes the newest eligible asset per filename, and supports at most 20 distinct patch files per source. Pre-release inclusion is selectable; drafts are excluded. Source ZIPs and repository files are ignored. No patch payload is bundled in Patchwork.
 
 Source imports replace saved definitions only after integrity and format validation. Different sources cannot own the same bundle ID. Versions never downgrade automatically; changing contents under an existing version refuses replacement. Source checks update the library and do not apply target changes. Already-applied history keeps its original version until a reviewed patch transaction commits.
+
+## Color options and WinUI resources (0.6.0)
+
+A ready patch may have at most eight options, each with type=color, an ID, label (1–80 characters), and a default #RRGGBB value. An operation resource value such as $accent references that patch's option ID. Each option must be used. Submitted keys use patchId.optionId, must belong to selected patches, and values must be complete six-digit hex colors. Omitted values use defaults. Options are resolved on a copy; original source contents and hashes are retained. Preview plans, worker requests and journals record normalized choices.
+
+managedThemeResources targets a parameterless instance void method that already merges Microsoft.UI.Xaml resource dictionaries. Its resources array has 1–100 entries with theme (Light or Dark), key (an ASCII letter followed by up to 79 letters, digits or underscores), type (color or brush), and value (#RRGGBB or $optionId). It generates only Color and SolidColorBrush elements and merges them on the method's normal exits. It accepts no XAML input, resource URIs, classes, event handlers, opacity expressions or arbitrary types. HighContrast cannot be supplied. Duplicate theme/key edits conflict. Distinct keys compose on the same hook. Use a hook before windows are built.
+
+Example option and resource entries:
+
+```json
+"options": [{ "id": "accent", "label": "Accent", "type": "color", "default": "#8A66FF" }],
+"resources": [{ "theme": "Dark", "key": "PrimaryColorBrush", "type": "brush", "value": "$accent" }]
+```
+
+## Conditional enumerable factories (0.6.0)
+
+managedEnumerableFactory targets a parameterless instance method returning IEnumerable<TOut>. condition, source, filter, factory and argument are arrays of 1–8 exact field/getter signatures starting at this. The boolean condition retains the original implementation when true. Otherwise source must end with an accessible parameterless method returning IEnumerable<TIn>. The filter chain returns a string. elementGetter is a public string getter on TIn; its value is compared to the filter with ordinal case-insensitive equality. factoryMethod is a public instance method taking (TIn, bool) and returning a type assignable to TOut. The factory chain supplies its receiver, and argument supplies the boolean parameter. No additional parameters, index-aware delegates or value-type receiver chains are supported.
+
+Fields must be accessible. The one exception is a sole condition member reading an inherited private boolean in the edited assembly; a same-assembly getter is added to that field's own type, with generic ancestors bound correctly. Typed private predicate/projector helpers and existing target-runtime LINQ references implement the operation. It conflicts with another full replacement of the same method. It accepts no scripts, IL or binary payloads.
