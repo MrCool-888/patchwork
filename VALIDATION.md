@@ -83,7 +83,13 @@ All 39 app scenarios passed. The two additional scenarios execute enum collectio
 Proton pack 1.3.0 to 1.4.0 direct upgrade passed on a complete copy, including an older journal without patch IDs, eight tracked assemblies, deterministic previews, color history and exact restoration. Separate probes passed 87 actual method checks and seven real WinUI promotional-control checks. Normal account plan, maintenance and server eligibility checks remain active. The Android-identity guest API experiment obtained a session, VPN credentials and a Windows-identity certificate, then revoked both sessions; client integration and a real tunnel remain unimplemented.
 
 
-## 0.9.0 Lunar prerelease — 2026-10-10
+## 0.9.1 Lunar launch fix — 2026-10-10
+
+All 47 self-tests passed with the new process-guard regression: unrelated Blitz processes no longer block Lunar's user-folder target, running Lunar still blocks it, and other target guards remain intact. The installer update runner passed 10 checks. Both current Lunar 0.1.1 packs passed full-sized preview, deterministic apply, injected partial-write rollback, cosmetic deselection/update and exact restore on copies.
+
+The old pinned-game guard failure was reproduced on the user's Windows PC before Java started. After restoring 0.1.0, letting original Lunar update the game and applying 0.1.1 with Patchwork 0.9.1, Minecraft 1.21.11 reached its main menu using launcher 3.7.24-ow. Locker loaded 5,665 cosmetics, rendered a bandanna and successfully equipped/unequipped it in Local Outfit, updating local persistence. Launchpad and Mission Control cleanup were observed. No multiplayer/world or packet-capture test was performed; multiplayer privacy remains unverified. See the separate pack's `docs/lunar/VALIDATION.md` for current game fingerprints and limits.
+
+## Earlier 0.9.0 Lunar prerelease — 2026-10-10
 
 - All 47 self-tests passed, including binary/JAR bounds/hash/path/signed-archive checks, deterministic output, source/worker compatibility, direct removal/update, rollback and byte-exact restore.
 - Both Lunar packs (3.7.17-ow and 3.7.24-ow) previewed/applied three full-sized files on copies. Injected failure after a partial write rolled back all files. Removing local cosmetics restored the original JAR and removed the launcher guard. Final history restore matched all three original SHA-256 hashes.

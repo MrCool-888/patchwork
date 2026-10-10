@@ -22,7 +22,8 @@ namespace Patchwork
         public static void CheckClientClosed(string target)
         {
             bool lunarGame = File.Exists(Path.Combine(target, ".lunarclient", "offline", "multiver", "lunar.jar"));
-            foreach (string name in new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz", "Lunar Client", "java", "javaw" })
+            var names = lunarGame ? new[] { "Lunar Client", "java", "javaw" } : new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz", "Lunar Client", "java", "javaw" };
+            foreach (string name in names)
                 foreach (var process in Process.GetProcessesByName(name))
                     using (process)
                     {

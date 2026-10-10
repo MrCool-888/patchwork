@@ -150,7 +150,21 @@ namespace Patchwork
             using (var compiler = Process.Start(new ProcessStartInfo(framework, "/nologo /out:\"" + helper + "\" \"" + source + "\"") { UseShellExecute = false, CreateNoWindow = true })) { compiler.WaitForExit(); Assert(compiler.ExitCode == 0, "Holder compilation failed."); }
             using (var child = Process.Start(new ProcessStartInfo(helper) { UseShellExecute = false, CreateNoWindow = true }))
             {
-                try { Reject(() => Worker.CheckClientClosed(target), "Close Blitz"); } finally { if (!child.HasExited) child.Kill(); child.WaitForExit(); }
+                try
+                {
+                    Reject(() => Worker.CheckClientClosed(target), "Close Blitz");
+                    string game = Path.Combine(target, ".lunarclient", "offline", "multiver"); Directory.CreateDirectory(game);
+                    File.WriteAllBytes(Path.Combine(game, "lunar.jar"), new byte[0]);
+                    Worker.CheckClientClosed(target);
+                    string lunar = Path.Combine(target, "Lunar Client.exe"); File.Copy(helper, lunar);
+                    using (var lunarProcess = Process.Start(new ProcessStartInfo(lunar) { UseShellExecute = false, CreateNoWindow = true }))
+                    {
+                        Assert(!lunarProcess.WaitForExit(100), "Lunar process fixture exited before inspection.");
+                        try { Reject(() => Worker.CheckClientClosed(target), "Close Lunar Client"); }
+                        finally { if (!lunarProcess.HasExited) lunarProcess.Kill(); lunarProcess.WaitForExit(); }
+                    }
+                }
+                finally { if (!child.HasExited) child.Kill(); child.WaitForExit(); }
             }
         }
     }

@@ -1,6 +1,6 @@
-# Patchwork 0.9.0 prerelease
+# Patchwork 0.9.1 prerelease
 
-Adds exact-fingerprinted executable byte edits and JAR class edits/additions for the separate Lunar Client 0.1.0 packs. Preview, apply, updates, rollback and exact restore cover the launcher executable, ASAR archive and game JAR in one transaction. Standard Lunar installations are detected under the Windows user folder. Empty-file ASAR integrity now accepts Electron’s canonical empty SHA-256 block and retains compatibility with earlier Patchwork histories. Live Lunar/Minecraft and multiplayer privacy validation remain pending. This installer includes no Lunar patch packs or Lunar binaries.
+Fixes Lunar transactions incorrectly blocked by an unrelated Blitz process. The separate Lunar Client 0.1.1 packs support the current inspected game build; Minecraft 1.21.11 launch, locker rendering and local equip/unequip were verified on Windows with launcher 3.7.24-ow. Multiplayer privacy remains unverified. Preview, apply, updates, rollback and exact restore cover the launcher executable, ASAR archive and game JAR in one transaction. Standard Lunar installations are detected under the Windows user folder. This installer includes no Lunar patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 

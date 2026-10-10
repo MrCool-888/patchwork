@@ -150,7 +150,7 @@ namespace Patchwork
             Test("Binary and JAR edits validate, upgrade, roll back and restore", () => BinaryTests.Run(root));
             Test("ASAR previews compose, update, recover and restore archives larger than 8 MB", () => AsarTests.Transactions(root));
             Test("ASAR parsing, entry integrity, counts, conflicts and paths are bounded", () => AsarTests.Boundaries(root));
-            Test("Running Blitz processes block archive transactions", () => AsarTests.RunningClient(root));
+            Test("Client process guards block patched apps and ignore unrelated apps for Lunar", () => AsarTests.RunningClient(root));
             Test("ASAR companion checksums compose, upgrade old sessions, roll back and restore both files", () => AsarTests.Checksums(root));
             Test("Blitz folder detection requires both executable and archive and respects candidate order", delegate {
                 string missing = Path.Combine(root, "blitz-missing"), executableOnly = Path.Combine(root, "blitz-exe-only"), archiveOnly = Path.Combine(root, "blitz-asar-only");
