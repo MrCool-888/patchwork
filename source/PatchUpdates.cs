@@ -100,6 +100,7 @@ namespace Patchwork
                         AsarPatches.Compare(change.BeforeBytes, change.AfterBytes, out beforeText, out afterText);
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
+                    else if (change.RelativePath.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)) { change.BeforeText = AsarChecksum.Describe(change.BeforeBytes); change.AfterText = AsarChecksum.Describe(change.AfterBytes); }
                     else { change.BeforeText = Decode(change.BeforeBytes); change.AfterText = Decode(change.AfterBytes); }
                     plan.Files.Add(change);
                 }

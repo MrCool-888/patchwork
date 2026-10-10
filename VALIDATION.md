@@ -1,5 +1,15 @@
 # Patchwork validation
 
+## Version 0.8.2 prerelease: Blitz companion checksum
+
+All **46 app self-tests passed, zero failures** on October 10, 2026. The new checksum scenario checks XXH32 reference vectors, a 10 MiB companion, strict paths/algorithm/fingerprints/footer bounds, duplicate composition, direct upgrades from an older ASAR-only journal, two-file failed-write rollback, selection updates and byte-exact restoration. Existing ASAR, closure, detection and managed-patch tests remain passing.
+
+The reported startup failure was E6. Inspection of the installed native `blitz_core.node` established that it compares XXH32 (seed zero) of the complete archive with the final four little-endian bytes of `icudtl.dat`. Original bytes agree at `97f3905b`; the old patch changed the archive without changing that companion footer. The fix keeps this comparison intact and updates the stored checksum transactionally.
+
+Blitz pack 1.1.0 passed isolated preview/apply/update/recovery/worker/restore checks against the original archive and companion. Independent Python xxHash verifies the new archive/footer pairs for both (`cc7b10e7`), clean (`8c117863`) and compact (`00e3fe28`) selections; only the last four companion bytes change. Independent archive, JavaScript, lifecycle and browser-layout checks pass. Automatic-update fixtures verify no default startup/polling update requests, preserved manual checks and an explicit opt-in. The previous desktop hook is unchanged.
+
+No corrected patch was applied to the installed Blitz client. Live corrected startup, sign-ins and full game/update workflows remain pending; isolated native-hook evidence below did not exercise Blitz's complete native bootstrap and originally missed this checksum.
+
 ## Version 0.8.1 prerelease: automatic Blitz folder detection
 
 All **45 app self-tests passed, zero failures** on October 10, 2026. The new detection scenario rejects missing or incomplete installs, checks per-user candidate priority and the Program Files fallback. A WPF controller probe with the published Blitz pack automatically selected the actual installed `%LOCALAPPDATA%\Programs\Blitz` folder, displayed matching target fingerprints and enabled Preview after selecting a patch. It also verified that a saved custom folder remains selected and the installed archive was unchanged.

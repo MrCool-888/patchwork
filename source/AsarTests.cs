@@ -100,6 +100,36 @@ namespace Patchwork
             string target = Path.Combine(root, "asar-fingerprints"); Directory.CreateDirectory(target); File.WriteAllBytes(Path.Combine(target, "app.asar"), original.Concat(new byte[] { 0 }).ToArray());
             Reject(() => new PatchEngine(Path.Combine(root, "asar-fingerprint-data")).Preview(bundle, target, new[] { "first" }), "Target fingerprint");
         }
+        public static void Checksums(string root)
+        {
+            Assert(AsarChecksum.Hash(new byte[0]) == 0x02cc5d05U && AsarChecksum.Hash(Encoding.UTF8.GetBytes("abc")) == 0x32d153ffU, "XXH32 reference vectors failed.");
+            byte[] original = Archive("alpha beta\n", 8), companion = new byte[10 * 1024 * 1024];
+            Buffer.BlockCopy(BitConverter.GetBytes(AsarChecksum.Hash(original)), 0, companion, companion.Length - 4, 4);
+            string target = Path.Combine(root, "asar-checksum-target"); Directory.CreateDirectory(target);
+            File.WriteAllBytes(Path.Combine(target, "app.asar"), original); File.WriteAllBytes(Path.Combine(target, "icudtl.dat"), companion);
+            var bundle = Bundle(original); var engine = new PatchEngine(Path.Combine(root, "asar-checksum-data"));
+            var old = engine.Apply(engine.Preview(bundle, target, new[] { "first" }));
+            var raw = Json.Parse(bundle.Content);
+            var checksum = new Dictionary<string, object> { { "kind", "asarChecksum" }, { "file", "icudtl.dat" }, { "sha256", PatchEngine.Hash(companion) }, { "archive", "app.asar" }, { "archiveSha256", PatchEngine.Hash(original) }, { "algorithm", "xxhash32" }, { "offset", companion.Length - 4 } };
+            foreach (var patch in Json.Array(raw, "patches")) { var item = Json.Object(patch); var operations = Json.Array(item, "operations"); operations.Add(checksum); item["operations"] = operations; }
+            raw["packVersion"] = "1.1.0"; bundle = PatchBundle.Parse(Json.Pretty(raw));
+            var plan = engine.Preview(bundle, target, new[] { "first", "second" });
+            Assert(plan.Files.Count == 2 && plan.Files.Single(x => x.RelativePath == "icudtl.dat").BeforeText.Contains("four bytes"), "Checksum missing from upgrade preview.");
+            byte[] previous = File.ReadAllBytes(Path.Combine(target, "app.asar"));
+            engine.BeforeWriteForTest = index => { if (index == 1) throw new IOException("Checksum write interruption"); };
+            Reject(() => engine.Apply(plan), "previous patch version was restored");
+            Assert(File.ReadAllBytes(Path.Combine(target, "app.asar")).SequenceEqual(previous) && File.ReadAllBytes(Path.Combine(target, "icudtl.dat")).SequenceEqual(companion), "Two-file rollback failed.");
+            engine.BeforeWriteForTest = null; var applied = engine.Apply(engine.Preview(bundle, target, new[] { "first", "second" }));
+            var changed = File.ReadAllBytes(Path.Combine(target, "icudtl.dat"));
+            Assert(changed.Take(changed.Length - 4).SequenceEqual(companion.Take(companion.Length - 4)) && BitConverter.ToUInt32(changed, changed.Length - 4) == AsarChecksum.Hash(File.ReadAllBytes(Path.Combine(target, "app.asar"))), "Companion checksum not synchronized.");
+            var latest = engine.Apply(engine.Preview(bundle, target, new[] { "second" })); engine.Restore(latest);
+            Assert(File.ReadAllBytes(Path.Combine(target, "app.asar")).SequenceEqual(original) && File.ReadAllBytes(Path.Combine(target, "icudtl.dat")).SequenceEqual(companion), "Original pair was not restored.");
+            checksum["offset"] = -1; Reject(() => PatchBundle.Parse(Json.Pretty(raw)), "offset"); checksum["offset"] = companion.Length - 3;
+            Reject(() => engine.Preview(PatchBundle.Parse(Json.Pretty(raw)), target, new[] { "first" }), "final four bytes"); checksum["offset"] = companion.Length - 4;
+            checksum["archive"] = "../app.asar"; Reject(() => PatchBundle.Parse(Json.Pretty(raw)), "Unsafe"); checksum["archive"] = "app.asar";
+            checksum["algorithm"] = "unknown"; Reject(() => PatchBundle.Parse(Json.Pretty(raw)), "xxhash32"); checksum["algorithm"] = "xxhash32";
+            File.WriteAllBytes(Path.Combine(target, "icudtl.dat"), new byte[companion.Length]); Reject(() => engine.Preview(bundle, target, new[] { "first" }), "Unsupported");
+        }
         public static void RunningClient(string root)
         {
             string target = Path.Combine(root, "asar-running"); Directory.CreateDirectory(target);

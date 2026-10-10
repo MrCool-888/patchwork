@@ -41,6 +41,24 @@ Patchwork rebuilds in memory without extracting members to the target directory.
 
 Apply, selection/pack updates, failure rollback, interrupted recovery and restore use the existing durable original backups and journal transactions. Original bytes are retained; restore reproduces the exact original archive rather than reversing replacements. Close Blitz before apply, update or restore. A different original archive requires a matching pack. Some Electron apps enforce signed or embedded ASAR header hashes; `asarTextReplace` does not change that enforcement or the executable signature. Check the target's actual runtime before declaring compatibility.
 
+## ASAR companion checksum (0.8.2)
+
+`asarChecksum` updates the final four bytes of an exact-fingerprinted `.dat` companion file from a selected rebuilt archive. Set `minimumPatcherVersion: "0.8.2"`. Required fields are `kind`, companion `file`/`sha256`, `archive`/`archiveSha256`, `algorithm: "xxhash32"` (seed zero), and integer `offset`. Both paths follow the same safe-relative-path rules. The companion is limited to 16 MiB; the archive retains its 64 MiB limit. The offset must equal the companion's length minus four.
+
+```json
+{
+  "kind": "asarChecksum",
+  "file": "icudtl.dat",
+  "sha256": "FULL_64_CHARACTER_ORIGINAL_COMPANION_SHA256",
+  "archive": "resources/app.asar",
+  "archiveSha256": "FULL_64_CHARACTER_ORIGINAL_ARCHIVE_SHA256",
+  "algorithm": "xxhash32",
+  "offset": 10468208
+}
+```
+
+The selected operations must include text edits to that archive. Preview verifies both original fingerprints and the original little-endian footer, composes all archive edits first, then computes the new footer. Identical companion operations merge; conflicting declarations are refused. All preceding companion bytes remain unchanged. The binary preview shows the offset and before/after checksum values. Apply, update, rollback, recovery and byte-exact restore cover both files, including upgrades from older ASAR-only history. This supports Blitz's verified companion format; it does not disable a native check or modify executable signatures. XXH32 follows the [published specification](https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md).
+
 ## Managed operations
 
 Managed operations target IL-only `.dll` assemblies. Every operation needs `file`, `sha256`, and `method` with the **complete Cecil signature**, such as `System.Boolean Example.Widget::get_IsRestricted()`. A missing or ambiguous signature refuses preview. The preview shows affected method IL, and the generated assembly is re-read before any write.

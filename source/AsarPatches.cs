@@ -134,6 +134,7 @@ namespace Patchwork
         }
         public static byte[] Transform(byte[] original, List<PatchOperation> operations, out string beforeText, out string afterText)
         {
+            operations = operations.GroupBy(x => new { x.Entry, x.EntrySha256, x.Find, x.Replacement, x.Count }).Select(x => x.First()).ToList();
             var archive = Read(original);
             foreach (var group in operations.GroupBy(x => x.Entry, StringComparer.Ordinal))
             {

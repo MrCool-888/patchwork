@@ -1,6 +1,6 @@
-# Patchwork 0.8.1 prerelease
+# Patchwork 0.8.2 prerelease
 
-This experimental prerelease adds automatic Blitz install-folder detection to the Electron ASAR support introduced in 0.8.0. Full live Blitz behavior and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
+This experimental prerelease adds a transactional ASAR companion-checksum operation for the Blitz startup fix. Blitz pack 1.1.0 repairs the checksum mismatch that caused the older pack to exit with E6 and turns automatic Blitz client/frontend updates off by default. Automatic install-folder detection remains available. Live corrected Blitz startup and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -12,7 +12,7 @@ An installable Windows patch manager with separate patch-file imports, automatic
 Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the current Windows user to `%LOCALAPPDATA%\Programs\Patchwork`, adds Start menu shortcuts and an Installed Apps entry, and offers a desktop shortcut. Setup itself needs no administrator rights. Windows 10/11 x64 and .NET Framework 4.8 are required. This is an unsigned development build.
 
 1. Open Patchwork. A new installation starts with an empty library.
-2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled to import the combined Blitz and Proton release. Blitz requires Patchwork 0.8.0. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
+2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled to import the combined Blitz and Proton release. Blitz pack 1.1.0 requires Patchwork 0.8.2. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
 3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Browse** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
 4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
@@ -61,6 +61,8 @@ The library and patch cards show the imported pack version and individual patch 
 See [PATCH-FORMAT.md](PATCH-FORMAT.md). Most operations are declarative. Version 0.7.0 also accepts explicitly declared, hash-verified managed client modules. The library identifies these as executable code and the preview shows their SHA-256. Importing, previewing and applying only validate/embed the module; it runs later inside the target app. A hash establishes integrity, not trust or a sandbox: review the author's source before applying client code. App behavior and server entitlements remain subject to the target app's implementation. Shell commands and download operations are unsupported.
 
 Version 0.8.0 adds `asarTextReplace`, including exact original archive/member fingerprints and exact match counts. Rebuilds preserve untouched packed contents and unpacked/link metadata, update offsets and edited-member integrity hashes, and verify the result without extracting into the installation folder. JavaScript changes are identified as executable client code and shown by member in preview. Archive edits use the existing backup, update, recovery and byte-exact restore transactions. Apps enforcing an embedded signed ASAR header may require additional vendor support; this operation does not change executable fuses or signatures.
+
+Version 0.8.2 adds `asarChecksum` for an exact-fingerprinted `.dat` companion file up to 16 MiB. It verifies the original archive/footer pair and updates only a four-byte XXH32 footer from the fully rebuilt archive. The preview shows both checksum values; backups, rollback, updates and restore cover both files. Blitz 1.0.0 missed this native checksum and is superseded by 1.1.0. Update Patchwork first, check the patch source, then preview and update the applied Blitz patches with Blitz closed; verified older history supports a direct upgrade.
 
 Version 0.4.2 added conditional boolean setter overrides for patch packs that need to change selected rows while preserving the other rows' restrictions. Proton pack 1.2.0 requires this operation. Patch packs remain separate downloads.
 
