@@ -239,6 +239,7 @@ namespace Patchwork
             Control<TextBlock>("SessionNote").Text = proton ? "Close Proton's desktop app before applying. Client patches do not change server account permissions. Read each patch's scope." : "Preview exact file changes before applying. Originals are backed up automatically.";
             if (!targets.ContainsKey(current.Id)) targets[current.Id] = "";
             if (proton && String.IsNullOrEmpty(targets[current.Id])) DetectProton();
+            if (current.AppId == "blitz" && String.IsNullOrEmpty(targets[current.Id])) DetectBlitz();
             try { var active = String.IsNullOrEmpty(targets[current.Id]) ? null : engine.ActiveSession(targets[current.Id]); if (active != null && active.BundleId == current.Id && active.PatchIds != null) foreach (string id in active.PatchIds.Where(x => current.Patches.Any(p => p.Id == x && p.Ready))) selected.Add(id); } catch { }
             string sourceOwner = patchSources == null ? null : patchSources.Owner(current.Id);
             if (sourceOwner != null) Control<TextBlock>("SessionDescription").Text += "\nSource: " + sourceOwner;
@@ -506,6 +507,24 @@ namespace Patchwork
                 if (best != null) targets[current.Id] = best;
             }
             catch { /* Folder browsing remains available if automatic detection fails. */ }
+        }
+        void DetectBlitz()
+        {
+            try
+            {
+                string best = FindBlitzFolder(new[] {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Blitz"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Blitz"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Blitz")
+                });
+                if (best != null) targets[current.Id] = best;
+            }
+            catch { /* Folder browsing remains available if automatic detection fails. */ }
+        }
+        internal static string FindBlitzFolder(IEnumerable<string> candidates)
+        {
+            return candidates.FirstOrDefault(root => File.Exists(Path.Combine(root, "Blitz.exe")) &&
+                File.Exists(Path.Combine(root, "resources", "app.asar")));
         }
         static string VersionLabel(string value) { return String.IsNullOrEmpty(value) || value == "Unversioned" ? "Unversioned" : "v" + value; }
         static Version ParseVersion(string value) { Version version; return Version.TryParse(value, out version) ? version : new Version(0, 0); }

@@ -1,6 +1,6 @@
-# Patchwork 0.8.0 prerelease
+# Patchwork 0.8.1 prerelease
 
-This experimental prerelease adds Electron ASAR text edits for the separate Blitz Clean Desktop pack. Full live Blitz behavior and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
+This experimental prerelease adds automatic Blitz install-folder detection to the Electron ASAR support introduced in 0.8.0. Full live Blitz behavior and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -13,7 +13,7 @@ Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the
 
 1. Open Patchwork. A new installation starts with an empty library.
 2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled to import the combined Blitz and Proton release. Blitz requires Patchwork 0.8.0. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
-3. Choose the matching app folder. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
+3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Browse** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
 4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
 6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **History & restore** still restores the original files when you want to remove the patches.

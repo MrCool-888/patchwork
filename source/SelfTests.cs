@@ -150,6 +150,16 @@ namespace Patchwork
             Test("ASAR previews compose, update, recover and restore archives larger than 8 MB", () => AsarTests.Transactions(root));
             Test("ASAR parsing, entry integrity, counts, conflicts and paths are bounded", () => AsarTests.Boundaries(root));
             Test("Running Blitz processes block archive transactions", () => AsarTests.RunningClient(root));
+            Test("Blitz folder detection requires both executable and archive and respects candidate order", delegate {
+                string missing = Path.Combine(root, "blitz-missing"), executableOnly = Path.Combine(root, "blitz-exe-only"), archiveOnly = Path.Combine(root, "blitz-asar-only");
+                string local = Path.Combine(root, "blitz-local"), system = Path.Combine(root, "blitz-system");
+                foreach (string folder in new[] { executableOnly, archiveOnly, local, system }) Directory.CreateDirectory(Path.Combine(folder, "resources"));
+                foreach (string folder in new[] { executableOnly, local, system }) File.WriteAllText(Path.Combine(folder, "Blitz.exe"), "fixture");
+                foreach (string folder in new[] { archiveOnly, local, system }) File.WriteAllText(Path.Combine(folder, "resources", "app.asar"), "fixture");
+                Assert(MainController.FindBlitzFolder(new[] { missing, executableOnly, archiveOnly }) == null, "Incomplete installation was selected.");
+                Assert(MainController.FindBlitzFolder(new[] { missing, executableOnly, archiveOnly, local, system }) == local, "Per-user installation was not selected first.");
+                Assert(MainController.FindBlitzFolder(new[] { missing, system }) == system, "System installation was not detected.");
+            });
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;

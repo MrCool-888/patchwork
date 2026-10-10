@@ -1,5 +1,11 @@
 # Patchwork validation
 
+## Version 0.8.1 prerelease: automatic Blitz folder detection
+
+All **45 app self-tests passed, zero failures** on October 10, 2026. The new detection scenario rejects missing or incomplete installs, checks per-user candidate priority and the Program Files fallback. A WPF controller probe with the published Blitz pack automatically selected the actual installed `%LOCALAPPDATA%\Programs\Blitz` folder, displayed matching target fingerprints and enabled Preview after selecting a patch. It also verified that a saved custom folder remains selected and the installed archive was unchanged.
+
+Detection requires both `Blitz.exe` and `resources/app.asar`. Compatibility remains an independent fingerprint check, so detecting an unsupported client does not make it compatible. Custom locations still use Browse. Existing Proton detection and both patch packs are unchanged. Full live Blitz account/game-flow tests remain pending as recorded below.
+
 ## Local 0.8.0 prerelease: Blitz ASAR support
 
 Built on Windows x64 on October 10, 2026 from upstream commit `e777596adc92f888a25aca938fd03984245060ee`. The final test build passes **44 scenarios, zero failures**, including all 41 existing scenarios and three new ASAR/client-closure scenarios. New coverage exercises parsing, changed lengths, UTF-8 BOMs, full/block integrity, composed edits, conflicts, original archive/member hashes, exact counts, rejected paths, linked/unpacked edit refusal, size limits, previews without writes, selection updates, rollback, interrupted recovery, corrupt backups and byte-exact restoration. A generated child process verifies the closed-Blitz transaction guard.
