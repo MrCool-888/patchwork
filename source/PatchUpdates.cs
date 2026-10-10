@@ -30,7 +30,7 @@ namespace Patchwork
                 string full = Resolve(journal.TargetRoot, entry.RelativePath);
                 if (result.ContainsKey(full)) throw new InvalidDataException("Duplicate backup file entry.");
                 PatchBundle.ValidateHash(entry.BeforeHash); PatchBundle.ValidateHash(entry.AfterHash);
-                byte[] original = Read(Resolve(journal.DirectoryPath, entry.BackupFile));
+                byte[] original = ReadBackup(Resolve(journal.DirectoryPath, entry.BackupFile), entry.RelativePath);
                 if (Hash(original) != entry.BeforeHash) throw new InvalidOperationException("Backup fingerprint mismatch: " + entry.RelativePath);
                 if (Hash(Read(full)) != entry.AfterHash) throw new InvalidOperationException("Update blocked: " + entry.RelativePath + " was changed outside Patchwork. No files were updated.");
                 result.Add(full, original);
@@ -94,6 +94,12 @@ namespace Patchwork
                         ManagedPatches.Compare(change.BeforeBytes, change.AfterBytes, root, out beforeText, out afterText);
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
+                    else if (change.RelativePath.EndsWith(".asar", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string beforeText, afterText;
+                        AsarPatches.Compare(change.BeforeBytes, change.AfterBytes, out beforeText, out afterText);
+                        change.BeforeText = beforeText; change.AfterText = afterText;
+                    }
                     else { change.BeforeText = Decode(change.BeforeBytes); change.AfterText = Decode(change.AfterBytes); }
                     plan.Files.Add(change);
                 }
@@ -115,7 +121,7 @@ namespace Patchwork
                 string full = Resolve(journal.TargetRoot, entry.RelativePath);
                 if (!paths.Add(full)) throw new InvalidDataException("Duplicate backup file entry.");
                 PatchBundle.ValidateHash(entry.PreviousHash); PatchBundle.ValidateHash(entry.AfterHash);
-                if (Hash(Read(Resolve(journal.DirectoryPath, entry.PreviousBackupFile))) != entry.PreviousHash)
+                if (Hash(ReadBackup(Resolve(journal.DirectoryPath, entry.PreviousBackupFile), entry.RelativePath)) != entry.PreviousHash)
                     throw new InvalidOperationException("Previous-version backup fingerprint mismatch: " + entry.RelativePath);
                 string actual = Hash(Read(full));
                 if (actual != entry.PreviousHash && actual != entry.AfterHash)
@@ -128,7 +134,7 @@ namespace Patchwork
                 {
                     string full = Resolve(journal.TargetRoot, entry.RelativePath);
                     if (Hash(Read(full)) == entry.PreviousHash) continue;
-                    AtomicReplace(full, Read(Resolve(journal.DirectoryPath, entry.PreviousBackupFile)), entry.AfterHash);
+                    AtomicReplace(full, ReadBackup(Resolve(journal.DirectoryPath, entry.PreviousBackupFile), entry.RelativePath), entry.AfterHash);
                     if (Hash(Read(full)) != entry.PreviousHash) throw new IOException("Previous-version recovery failed: " + entry.RelativePath);
                 }
                 parent.State = "Applied"; parent.SupersededBy = null; Save(parent);

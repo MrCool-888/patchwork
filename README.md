@@ -1,6 +1,6 @@
-# Patchwork 0.7.0 prerelease
+# Patchwork 0.8.0 prerelease
 
-This experimental prerelease supports the separate Proton guest patch. A real installed-client guest connection remains unverified. The current stable patcher remains 0.6.1.
+This experimental prerelease adds Electron ASAR text edits for the separate Blitz Clean Desktop pack. Full live Blitz behavior and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -12,9 +12,9 @@ An installable Windows patch manager with separate patch-file imports, automatic
 Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the current Windows user to `%LOCALAPPDATA%\Programs\Patchwork`, adds Start menu shortcuts and an Installed Apps entry, and offers a desktop shortcut. Setup itself needs no administrator rights. Windows 10/11 x64 and .NET Framework 4.8 are required. This is an unsigned development build.
 
 1. Open Patchwork. A new installation starts with an empty library.
-2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled for the experimental Proton packs. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
+2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled to import the combined Blitz and Proton release. Blitz requires Patchwork 0.8.0. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
 3. Choose the matching app folder. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
-4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content or assembly methods. Importing and previewing do not change target files.
+4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
 6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **History & restore** still restores the original files when you want to remove the patches.
 
@@ -48,7 +48,7 @@ Version 0.4.1 fixed the Windows “process is being used” update error. Curren
 
 Backups, history, imported files, sources, update downloads, and preferences live in `%LOCALAPPDATA%\Patchwork\Data`. Updating/uninstalling Patchwork preserves this data and does not undo target patches. Restore targets before uninstalling if you want their original state.
 
-Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Network shares, symlinks/junctions, mixed native/managed assemblies, and target files over 8 MB are unsupported. New target-app releases need matching new patch files.
+Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Ordinary text/managed targets retain the 8 MB limit; ASAR archives may be at most 64 MB, with edited text members limited to 8 MB. Network shares, symlinks/junctions and mixed native/managed assemblies are unsupported. New target-app releases need matching new patch files. Apply, update and restore require a recognized Blitz or Proton client in the selected folder to be closed.
 
 ## Color options (0.6.0)
 
@@ -59,6 +59,8 @@ Selected appearance patches can expose color fields and a **Choose…** color pi
 The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
 
 See [PATCH-FORMAT.md](PATCH-FORMAT.md). Most operations are declarative. Version 0.7.0 also accepts explicitly declared, hash-verified managed client modules. The library identifies these as executable code and the preview shows their SHA-256. Importing, previewing and applying only validate/embed the module; it runs later inside the target app. A hash establishes integrity, not trust or a sandbox: review the author's source before applying client code. App behavior and server entitlements remain subject to the target app's implementation. Shell commands and download operations are unsupported.
+
+Version 0.8.0 adds `asarTextReplace`, including exact original archive/member fingerprints and exact match counts. Rebuilds preserve untouched packed contents and unpacked/link metadata, update offsets and edited-member integrity hashes, and verify the result without extracting into the installation folder. JavaScript changes are identified as executable client code and shown by member in preview. Archive edits use the existing backup, update, recovery and byte-exact restore transactions. Apps enforcing an embedded signed ASAR header may require additional vendor support; this operation does not change executable fuses or signatures.
 
 Version 0.4.2 added conditional boolean setter overrides for patch packs that need to change selected rows while preserving the other rows' restrictions. Proton pack 1.2.0 requires this operation. Patch packs remain separate downloads.
 

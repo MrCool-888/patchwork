@@ -267,7 +267,7 @@ namespace Patchwork
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
-                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook")) {
+                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook" || x.Kind == "asarTextReplace")) {
                     var code = Text("Executable client code · runs inside the target app", 11, "#E5BB77"); code.Margin = new Thickness(0, 7, 0, 0); content.Children.Add(code);
                 }
                 if (patch.Ready && selected.Contains(patch.Id)) AddColorOptions(content, patch);
@@ -387,7 +387,7 @@ namespace Patchwork
             {
                 var bundle = current;
                 var journal = await Task.Run(() => {
-                    if (bundle.AppId == "proton-vpn") Worker.CheckClientClosed(plan.TargetRoot);
+                    Worker.CheckClientClosed(plan.TargetRoot);
                     if (Worker.Protected(plan.TargetRoot)) { string id = Worker.RunElevated(engine, bundle, plan, null); return engine.History().Single(x => x.Id == id); }
                     return engine.Apply(plan);
                 });

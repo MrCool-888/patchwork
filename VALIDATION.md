@@ -1,5 +1,17 @@
 # Patchwork validation
 
+## Local 0.8.0 prerelease: Blitz ASAR support
+
+Built on Windows x64 on October 10, 2026 from upstream commit `e777596adc92f888a25aca938fd03984245060ee`. The final test build passes **44 scenarios, zero failures**, including all 41 existing scenarios and three new ASAR/client-closure scenarios. New coverage exercises parsing, changed lengths, UTF-8 BOMs, full/block integrity, composed edits, conflicts, original archive/member hashes, exact counts, rejected paths, linked/unpacked edit refusal, size limits, previews without writes, selection updates, rollback, interrupted recovery, corrupt backups and byte-exact restoration. A generated child process verifies the closed-Blitz transaction guard.
+
+The separate Blitz pack targets installed client 3.0.7.134 and frontend 3.0.8-ota.0. All apply/update/restore and worker checks use isolated copies of the actual 18,257,553-byte archive. Both selections and each individual selection preserve all 3,051 entries. An independent Node reader compares untouched contents/metadata, checks changed-member integrity and parses the resulting JavaScript. The installed Blitz archive is never changed.
+
+Desktop lifecycle/request fixtures exercise startup, reload, navigation, BrowserView recreation, one request-filter registration per session, desktop ID scoping and unknown-version fallback. A real headless Chromium layout fixture checks the verified selectors, reclaimed rail width, collapsed hit targets, dynamic elements and ordinary controls. A separate isolated Electron 31.2.1 runtime checks native ASAR reads and JavaScript syntax. Its local HTTPS fixture seeds memory/disk caches in an unrelated live view, then verifies supported startup, reload, full/SPA navigation and view recreation: ten ad requests are cancelled, one filter is registered, and the existing response handler runs 38 times. Unknown versions and unrelated views retain their behavior. Supported desktop views bypass cache to cover memory-cached ad scripts; this can increase downloads on full loads. Native 940 x 500 minimum sizing passes.
+
+Window-sizing fixtures execute the changed code for logged-out/free/premium labels and small/normal screens. These are controlled fixtures; live Blitz startup, real account sign-ins, login/settings/game flows, overlay behavior and the update service remain untested. The installer passes ten update-lock checks on workspace installations with registry/shortcut integration disabled. See the separate `VALIDATION-Blitz.md` delivery notes for final evidence and limits.
+
+Production builds exclude test fixtures. The installer remains separate from patch packs and includes seven app/library/guide files. Version 0.8.0 is an experimental prerelease and has no publisher signature.
+
 ## Experimental 0.7.0 prerelease
 
 The app test build passes **41 scenarios, zero failures**. Managed client tests verify actual fallback/after execution, preservation of original behavior, one embedded resource per payload, and refusal of invalid hashes, entries and target signatures. Client modules are identified automatically in the library and with their SHA-256 in preview; they are never executed during import, preview or application. The installer still excludes patch definitions and client modules. This is a prerelease; Proton guest tunnel validation remains pending. App updater tests cover opt-in prereleases, draft exclusion, no downgrade and unchanged integrity checks.

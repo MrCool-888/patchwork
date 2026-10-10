@@ -16,6 +16,31 @@ Optional bundle `packVersion` and patch `version` use three nonnegative numbers,
 
 `textReplace` uses `kind`, `file`, `sha256`, `find`, `replacement`, and `count` (1–10000 exact ordinal matches). Supported extensions: `.json`, `.txt`, `.css`, `.xml`, `.ini`, `.yaml`, `.yml`, `.toml`, `.conf`, `.config`. UTF-8 BOMs are preserved.
 
+## Electron ASAR text operations (0.8.0)
+
+`asarTextReplace` uses `kind`, `file`, original archive `sha256`, `entry`, original member `entrySha256`, nonempty `find`, `replacement`, and an explicit integer `count` (1–10000 exact ordinal matches). Set `minimumPatcherVersion: "0.8.0"`. The target must end in `.asar`; `entry` is a relative, case-sensitive path using forward slashes. Supported packed member extensions are `.js`, `.mjs`, `.json`, `.css`, `.html` and `.txt`. Linked and unpacked members cannot be edited. Rooted paths, traversal, empty segments and alternate data streams are rejected.
+
+```json
+{
+  "kind": "asarTextReplace",
+  "file": "resources/app.asar",
+  "sha256": "FULL_64_CHARACTER_ORIGINAL_ARCHIVE_SHA256",
+  "entry": "src/createWindow.js",
+  "entrySha256": "FULL_64_CHARACTER_ORIGINAL_MEMBER_SHA256",
+  "find": "const MIN_WIDTH = 1075;",
+  "replacement": "const MIN_WIDTH = 940;",
+  "count": 1
+}
+```
+
+Archives are bounded to 64 MiB; ordinary text and managed files retain their 8 MiB limit. Edited members must be valid UTF-8 and at most 8 MiB before and after replacement. UTF-8 BOMs are preserved. Headers are bounded to 4 MiB, depth 32 and 50,000 tree nodes; aggregate packed member contents are bounded to 64 MiB. Integrity metadata must use SHA256 with a positive block size and no more than 65,536 blocks per member. Invalid Pickle headers, bounds, integrity hashes and overlapping payload regions are refused. Identical shared payload regions are accepted within these limits.
+
+Every replacement is matched against the original member; different non-overlapping edits compose independently of selection order. Identical operations merge and overlapping edits conflict. The entire archive fingerprint and each edited member fingerprint must match; changing a version label does not establish compatibility.
+
+Patchwork rebuilds in memory without extracting members to the target directory. Untouched packed contents and member metadata are retained, including unpacked and link metadata. Packed offsets and sizes are recalculated, edited members receive full/block integrity hashes, and the rebuilt archive is parsed and its contents verified. The external `.asar.unpacked` tree is not modified. Preview shows changed member paths, hashes and full before/after text. JavaScript edits are marked as executable client code: Patchwork does not evaluate them, but they run with the target app's permissions later.
+
+Apply, selection/pack updates, failure rollback, interrupted recovery and restore use the existing durable original backups and journal transactions. Original bytes are retained; restore reproduces the exact original archive rather than reversing replacements. Close Blitz before apply, update or restore. A different original archive requires a matching pack. Some Electron apps enforce signed or embedded ASAR header hashes; `asarTextReplace` does not change that enforcement or the executable signature. Check the target's actual runtime before declaring compatibility.
+
 ## Managed operations
 
 Managed operations target IL-only `.dll` assemblies. Every operation needs `file`, `sha256`, and `method` with the **complete Cecil signature**, such as `System.Boolean Example.Widget::get_IsRestricted()`. A missing or ambiguous signature refuses preview. The preview shows affected method IL, and the generated assembly is re-read before any write.

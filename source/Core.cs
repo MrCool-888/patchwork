@@ -78,6 +78,7 @@ namespace Patchwork
     public class PatchOperation
     {
         public string Kind, File, Sha256, Find, Replacement, Method, CalledMethod, Type, ReturnType;
+        public string Entry, EntrySha256;
         public List<string> Path = new List<string>();
         public object Expected, Value;
         public int Count;
@@ -141,9 +142,11 @@ namespace Patchwork
                     var op = new PatchOperation { Kind = Json.String(opRaw, "kind"), File = Json.String(opRaw, "file"), Sha256 = Json.String(opRaw, "sha256") };
                     ValidateRelative(op.File); ValidateHash(op.Sha256);
                     bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
+                    bool asar = op.Kind == "asarTextReplace";
                     if (managed) ManagedPatches.Parse(op, opRaw);
+                    else if (asar) AsarPatches.Parse(op, opRaw);
                     else if (!AllowedExtension(op.File)) throw new InvalidDataException("Only UTF-8 configuration and text resources are supported for text operations: " + op.File);
-                    if (managed) { }
+                    if (managed || asar) { }
                     else if (op.Kind == "jsonSet")
                     {
                         if (!op.File.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("jsonSet requires a .json file.");
@@ -215,6 +218,7 @@ namespace Patchwork
         public string OriginalBeforeHash;
         public List<string> Details = new List<string>();
         [ScriptIgnore] public List<PatchOperation> ManagedOperations = new List<PatchOperation>();
+        [ScriptIgnore] public List<PatchOperation> AsarOperations = new List<PatchOperation>();
     }
     public class PatchPlan
     {
@@ -268,10 +272,22 @@ namespace Patchwork
         }
         public static byte[] Read(string file)
         {
+            return Read(file, TargetLimit(file));
+        }
+        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : 8 * 1024 * 1024; }
+        static byte[] ReadBackup(string file, string relative) { return Read(file, TargetLimit(relative)); }
+        static byte[] Read(string file, int maximum)
+        {
             var info = new FileInfo(file);
             if (!info.Exists) throw new FileNotFoundException("Required file is missing: " + file);
-            if (info.Length > 8 * 1024 * 1024) throw new InvalidDataException("Files larger than 8 MB are not supported in v0.1.");
-            return File.ReadAllBytes(file);
+            using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (stream.Length > maximum) throw new InvalidDataException("File exceeds " + (maximum / 1024 / 1024) + " MB: " + file);
+                var bytes = new byte[(int)stream.Length]; int offset = 0, count;
+                while (offset < bytes.Length && (count = stream.Read(bytes, offset, bytes.Length - offset)) > 0) offset += count;
+                if (offset != bytes.Length || stream.ReadByte() != -1) throw new IOException("File changed while reading: " + file);
+                return bytes;
+            }
         }
         public static string Decode(byte[] bytes)
         {
@@ -335,7 +351,7 @@ namespace Patchwork
                         {
                             byte[] before = ReadOriginal(full, originals);
                             bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
-                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed ? "" : Decode(before) };
+                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" ? "" : Decode(before) };
                             change.AfterText = change.BeforeText;
                             files.Add(full, change);
                         }
@@ -344,6 +360,11 @@ namespace Patchwork
                         {
                             change.ManagedOperations.Add(op);
                             change.Details.Add(patch.Name + ": " + op.Kind + " · " + op.Method);
+                        }
+                        else if (op.Kind == "asarTextReplace")
+                        {
+                            change.AsarOperations.Add(op);
+                            change.Details.Add(patch.Name + ": executable ASAR text edit · " + op.Entry);
                         }
                         else if (op.Kind == "jsonSet")
                         {
@@ -382,6 +403,12 @@ namespace Patchwork
                         foreach (var client in change.ManagedOperations.Where(x => x.Kind == "managedEmbeddedHook").GroupBy(x => x.ModuleSha256).Select(x => x.First()))
                             change.AfterText += "\nExecutable client module SHA-256: " + client.ModuleSha256 + "\nEntry type: " + client.EntryType + "\nRuns inside the target app when its hooked methods execute. Review its source before applying.\n";
                     }
+                    else if (change.AsarOperations.Count > 0)
+                    {
+                        string beforeText, afterText;
+                        change.AfterBytes = AsarPatches.Transform(change.BeforeBytes, change.AsarOperations, out beforeText, out afterText);
+                        change.BeforeText = beforeText; change.AfterText = afterText;
+                    }
                     else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes);
                     change.AfterHash = Hash(change.AfterBytes);
                     if (change.AfterHash != change.BeforeHash) plan.Files.Add(change);
@@ -392,6 +419,7 @@ namespace Patchwork
         }
         public Journal Apply(PatchPlan plan)
         {
+            Worker.CheckClientClosed(plan.TargetRoot);
             lock (transactionLock)
             using (AcquireTransaction())
             {
@@ -448,6 +476,7 @@ namespace Patchwork
         }
         public void Restore(Journal journal)
         {
+            Worker.CheckClientClosed(journal.TargetRoot);
             lock (transactionLock)
             using (AcquireTransaction())
             {
@@ -468,7 +497,7 @@ namespace Patchwork
                 if (!paths.Add(destination)) throw new InvalidDataException("Duplicate backup file entry.");
                 PatchBundle.ValidateHash(entry.BeforeHash); PatchBundle.ValidateHash(entry.AfterHash);
                 string backup = Resolve(journal.DirectoryPath, entry.BackupFile);
-                if (Hash(Read(backup)) != entry.BeforeHash) throw new InvalidOperationException("Backup fingerprint mismatch: " + entry.RelativePath);
+                if (Hash(ReadBackup(backup, entry.RelativePath)) != entry.BeforeHash) throw new InvalidOperationException("Backup fingerprint mismatch: " + entry.RelativePath);
                 string current = Hash(Read(destination));
                 if (current != entry.AfterHash && (!recovery || current != entry.BeforeHash)) throw new InvalidOperationException("Restore blocked: " + entry.RelativePath + " was changed outside Patchwork. No files were restored.");
             }
@@ -481,7 +510,7 @@ namespace Patchwork
                     string current = Hash(Read(destination));
                     if (current == entry.BeforeHash) continue;
                     if (current != entry.AfterHash) throw new InvalidOperationException("File changed during restore: " + entry.RelativePath);
-                    AtomicReplace(destination, Read(Resolve(journal.DirectoryPath, entry.BackupFile)), entry.AfterHash);
+                    AtomicReplace(destination, ReadBackup(Resolve(journal.DirectoryPath, entry.BackupFile), entry.RelativePath), entry.AfterHash);
                     if (Hash(Read(destination)) != entry.BeforeHash) throw new IOException("Restore verification failed: " + entry.RelativePath);
                 }
                 journal.State = "Restored"; Save(journal);

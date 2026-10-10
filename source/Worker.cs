@@ -21,16 +21,16 @@ namespace Patchwork
         }
         public static void CheckClientClosed(string target)
         {
-            foreach (string name in new[] { "ProtonVPN.Client", "ProtonVPN" })
+            foreach (string name in new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz" })
                 foreach (var process in Process.GetProcessesByName(name))
                     using (process)
                     {
                         try
                         {
                             string executable = process.MainModule.FileName;
-                            if (executable.StartsWith(Path.GetFullPath(target).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Close Proton VPN's desktop app from its tray menu, then try again.");
+                            if (executable.StartsWith(Path.GetFullPath(target).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Close " + name + " from its tray menu before applying, updating or restoring patches.");
                         }
-                        catch (System.ComponentModel.Win32Exception) { throw new InvalidOperationException("Proton VPN is running and could not be inspected. Close its desktop app before patching."); }
+                        catch (System.ComponentModel.Win32Exception) { throw new InvalidOperationException(name + " is running and could not be inspected. Close it before patching."); }
                     }
         }
         public static string CreateJob(PatchEngine engine, PatchBundle bundle, PatchPlan plan, Journal restore)
