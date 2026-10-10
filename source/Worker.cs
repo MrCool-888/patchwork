@@ -21,12 +21,14 @@ namespace Patchwork
         }
         public static void CheckClientClosed(string target)
         {
-            foreach (string name in new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz" })
+            bool lunarGame = File.Exists(Path.Combine(target, ".lunarclient", "offline", "multiver", "lunar.jar"));
+            foreach (string name in new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz", "Lunar Client", "java", "javaw" })
                 foreach (var process in Process.GetProcessesByName(name))
                     using (process)
                     {
                         try
                         {
+                            if (lunarGame && (name == "java" || name == "javaw")) throw new InvalidOperationException("Close Minecraft and other Java processes before applying, updating or restoring Lunar patches.");
                             string executable = process.MainModule.FileName;
                             if (executable.StartsWith(Path.GetFullPath(target).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Close " + name + " from its tray menu before applying, updating or restoring patches.");
                         }

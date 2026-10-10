@@ -98,6 +98,7 @@ namespace Patchwork
             {
                 var block = new byte[Math.Min(blockSize, bytes.Length - offset)]; Buffer.BlockCopy(bytes, offset, block, 0, block.Length); blocks.Add(PatchEngine.Hash(block));
             }
+            if (bytes.Length == 0) blocks.Add(PatchEngine.Hash(bytes));
             return new Dictionary<string, object> { { "algorithm", "SHA256" }, { "hash", PatchEngine.Hash(bytes) }, { "blockSize", blockSize }, { "blocks", blocks } };
         }
         static void VerifyIntegrity(byte[] bytes, Dictionary<string, object> integrity)
@@ -107,7 +108,10 @@ namespace Patchwork
             int size = Number(blockSize, "integrity block size", MaximumSize);
             if (size == 0) throw new InvalidDataException("Invalid ASAR integrity block size.");
             var expected = Integrity(bytes, size);
-            if (!Json.String(integrity, "hash").Equals((string)expected["hash"], StringComparison.OrdinalIgnoreCase) || !Json.Array(integrity, "blocks").Cast<string>().SequenceEqual((List<string>)expected["blocks"], StringComparer.OrdinalIgnoreCase)) throw new InvalidDataException("ASAR member integrity mismatch.");
+            var blocks = Json.Array(integrity, "blocks").Cast<string>().ToList();
+            // Earlier Patchwork builds emitted no blocks for empty members; retain those histories.
+            bool validBlocks = bytes.Length == 0 && blocks.Count == 0 || blocks.SequenceEqual((List<string>)expected["blocks"], StringComparer.OrdinalIgnoreCase);
+            if (!Json.String(integrity, "hash").Equals((string)expected["hash"], StringComparison.OrdinalIgnoreCase) || !validBlocks) throw new InvalidDataException("ASAR member integrity mismatch.");
         }
         static byte[] Write(Archive archive)
         {

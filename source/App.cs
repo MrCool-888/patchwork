@@ -240,6 +240,8 @@ namespace Patchwork
             if (!targets.ContainsKey(current.Id)) targets[current.Id] = "";
             if (proton && String.IsNullOrEmpty(targets[current.Id])) DetectProton();
             if (current.AppId == "blitz" && String.IsNullOrEmpty(targets[current.Id])) DetectBlitz();
+            if (current.AppId == "lunar-client" && String.IsNullOrEmpty(targets[current.Id])) DetectLunar();
+            if (current.AppId == "lunar-client") Control<TextBlock>("SessionNote").Text = "Close Lunar Client and Minecraft. This pack covers both folders under your Windows user folder. Unequip online cosmetics first. Restore before updating Lunar.";
             try { var active = String.IsNullOrEmpty(targets[current.Id]) ? null : engine.ActiveSession(targets[current.Id]); if (active != null && active.BundleId == current.Id && active.PatchIds != null) foreach (string id in active.PatchIds.Where(x => current.Patches.Any(p => p.Id == x && p.Ready))) selected.Add(id); } catch { }
             string sourceOwner = patchSources == null ? null : patchSources.Owner(current.Id);
             if (sourceOwner != null) Control<TextBlock>("SessionDescription").Text += "\nSource: " + sourceOwner;
@@ -268,7 +270,7 @@ namespace Patchwork
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
-                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook" || x.Kind == "asarTextReplace")) {
+                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook" || x.Kind == "asarTextReplace" || BinaryPatches.IsOperation(x.Kind))) {
                     var code = Text("Executable client code · runs inside the target app", 11, "#E5BB77"); code.Margin = new Thickness(0, 7, 0, 0); content.Children.Add(code);
                 }
                 if (patch.Ready && selected.Contains(patch.Id)) AddColorOptions(content, patch);
@@ -507,6 +509,15 @@ namespace Patchwork
                 if (best != null) targets[current.Id] = best;
             }
             catch { /* Folder browsing remains available if automatic detection fails. */ }
+        }
+        void DetectLunar()
+        {
+            try
+            {
+                string root = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (File.Exists(PatchEngine.Resolve(root, current.VersionFile)) && current.Patches.SelectMany(x => x.Operations).All(x => File.Exists(PatchEngine.Resolve(root, x.File)))) targets[current.Id] = root;
+            }
+            catch { /* Folder browsing remains available. */ }
         }
         void DetectBlitz()
         {

@@ -81,3 +81,13 @@ Three theme scenarios test composed resources, normalized choices, history, dire
 All 39 app scenarios passed. The two additional scenarios execute enum collection filters/lookup guards and WinUI visibility hooks, testing nulls, multiple returns, original object/list identity, paid preservation and restoring available controls. Invalid UI receivers/fields, hook arguments and undeclared enum values are refused. Conditional restriction chains bind inherited generic types and support expected-false conditions and exclusions.
 
 Proton pack 1.3.0 to 1.4.0 direct upgrade passed on a complete copy, including an older journal without patch IDs, eight tracked assemblies, deterministic previews, color history and exact restoration. Separate probes passed 87 actual method checks and seven real WinUI promotional-control checks. Normal account plan, maintenance and server eligibility checks remain active. The Android-identity guest API experiment obtained a session, VPN credentials and a Windows-identity certificate, then revoked both sessions; client integration and a real tunnel remain unimplemented.
+
+
+## 0.9.0 Lunar prerelease — 2026-10-10
+
+- All 47 self-tests passed, including binary/JAR bounds/hash/path/signed-archive checks, deterministic output, source/worker compatibility, direct removal/update, rollback and byte-exact restore.
+- Both Lunar packs (3.7.17-ow and 3.7.24-ow) previewed/applied three full-sized files on copies. Injected failure after a partial write rolled back all files. Removing local cosmetics restored the original JAR and removed the launcher guard. Final history restore matched all three original SHA-256 hashes.
+- Edited JS syntax and ASAR integrity, every unaffected archive member, all JAR CRCs and every unchanged JAR member passed. Exactly one executable byte changes. Only three original classes change and two independently written helper classes are added.
+- The exact game JAR produced by the .NET transformer is deterministic: SHA-1 `5b2b40dac44c0976b60ea4c4cb843fd0e88f5447`. Both guards accept that artifact only with the original expected SHA-1 and reject damaged or new game builds.
+- Real transformed Java stubs passed local outfit CRUD, persistence, unlock path and corrupt-state tests under JVM verification; only login reached the fake network channel. Shared ad hooks returned false for all inspected placements.
+- No live installed Lunar files were changed by these tests. Minecraft rendering, incoming remote cosmetic refreshes, multiplayer traffic/privacy and server acceptance remain unverified. Exact fingerprints reject other builds. Executable modification invalidates its publisher signature and disables embedded ASAR validation; the pack documents this explicitly.

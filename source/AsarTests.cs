@@ -77,6 +77,16 @@ namespace Patchwork
         }
         public static void Boundaries(string root)
         {
+            string emptyHash = PatchEngine.Hash(new byte[0]);
+            var emptyIntegrity = new Dictionary<string, object> { { "algorithm", "SHA256" }, { "hash", emptyHash }, { "blockSize", 4194304 }, { "blocks", new[] { emptyHash } } };
+            var emptyMember = new Dictionary<string, object> { { "size", 0 }, { "offset", "0" }, { "integrity", emptyIntegrity } };
+            var emptyHeader = new Dictionary<string, object> { { "files", new Dictionary<string, object> { { "empty.js", emptyMember } } } };
+            string emptyBefore, emptyAfter; byte[] empty = Header(emptyHeader, new byte[0]);
+            AsarPatches.Compare(empty, empty, out emptyBefore, out emptyAfter);
+            emptyIntegrity["blocks"] = new string[0]; byte[] legacyEmpty = Header(emptyHeader, new byte[0]);
+            AsarPatches.Compare(legacyEmpty, empty, out emptyBefore, out emptyAfter);
+            emptyIntegrity["blocks"] = new[] { new string('0', 64) };
+            Reject(() => AsarPatches.Compare(Header(emptyHeader, new byte[0]), empty, out emptyBefore, out emptyAfter), "integrity mismatch");
             byte[] original = Archive("alpha beta\n", 8); var bundle = Bundle(original); var op = bundle.Patches[0].Operations[0];
             string before, after;
             Action transform = () => AsarPatches.Transform(original, new List<PatchOperation> { op }, out before, out after);

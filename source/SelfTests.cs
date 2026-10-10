@@ -147,6 +147,7 @@ namespace Patchwork
             Test("Presentation operations refuse wrong UI receivers, parameters and enum values", () => PresentationTests.Validation(root));
             Test("Embedded client fallback preserves original behavior and after hooks", () => ModuleTests.Runtime(root));
             Test("Embedded client modules refuse invalid hashes, entries and signatures", () => ModuleTests.Validation(root));
+            Test("Binary and JAR edits validate, upgrade, roll back and restore", () => BinaryTests.Run(root));
             Test("ASAR previews compose, update, recover and restore archives larger than 8 MB", () => AsarTests.Transactions(root));
             Test("ASAR parsing, entry integrity, counts, conflicts and paths are bounded", () => AsarTests.Boundaries(root));
             Test("Running Blitz processes block archive transactions", () => AsarTests.RunningClient(root));

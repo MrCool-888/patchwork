@@ -101,6 +101,7 @@ namespace Patchwork
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
                     else if (change.RelativePath.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)) { change.BeforeText = AsarChecksum.Describe(change.BeforeBytes); change.AfterText = AsarChecksum.Describe(change.AfterBytes); }
+                    else if (change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || change.RelativePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) { change.BeforeText = BinaryPatches.Describe(change.BeforeBytes); change.AfterText = BinaryPatches.Describe(change.AfterBytes) + "\nExecutable client edit; review the selected patch descriptions."; }
                     else { change.BeforeText = Decode(change.BeforeBytes); change.AfterText = Decode(change.AfterBytes); }
                     plan.Files.Add(change);
                 }

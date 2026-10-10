@@ -80,6 +80,8 @@ namespace Patchwork
         public string Kind, File, Sha256, Find, Replacement, Method, CalledMethod, Type, ReturnType;
         public string Entry, EntrySha256;
         public string Archive, ArchiveSha256;
+        public string BinaryData, ResultSha256;
+        public List<BinaryEdit> BinaryEdits = new List<BinaryEdit>();
         public int Offset;
         public List<string> Path = new List<string>();
         public object Expected, Value;
@@ -146,11 +148,13 @@ namespace Patchwork
                     bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
                     bool asar = op.Kind == "asarTextReplace";
                     bool checksum = op.Kind == "asarChecksum";
+                    bool binary = BinaryPatches.IsOperation(op.Kind);
                     if (managed) ManagedPatches.Parse(op, opRaw);
                     else if (asar) AsarPatches.Parse(op, opRaw);
                     else if (checksum) AsarChecksum.Parse(op, opRaw);
+                    else if (binary) BinaryPatches.Parse(op, opRaw);
                     else if (!AllowedExtension(op.File)) throw new InvalidDataException("Only UTF-8 configuration and text resources are supported for text operations: " + op.File);
-                    if (managed || asar || checksum) { }
+                    if (managed || asar || checksum || binary) { }
                     else if (op.Kind == "jsonSet")
                     {
                         if (!op.File.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("jsonSet requires a .json file.");
@@ -224,6 +228,7 @@ namespace Patchwork
         [ScriptIgnore] public List<PatchOperation> ManagedOperations = new List<PatchOperation>();
         [ScriptIgnore] public List<PatchOperation> AsarOperations = new List<PatchOperation>();
         [ScriptIgnore] public PatchOperation ChecksumOperation;
+        [ScriptIgnore] public List<PatchOperation> BinaryOperations = new List<PatchOperation>();
     }
     public class PatchPlan
     {
@@ -279,7 +284,7 @@ namespace Patchwork
         {
             return Read(file, TargetLimit(file));
         }
-        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : 8 * 1024 * 1024; }
+        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : file.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.MaximumSize : file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? BinaryPatches.MaximumSize : 8 * 1024 * 1024; }
         static byte[] ReadBackup(string file, string relative) { return Read(file, TargetLimit(relative)); }
         static byte[] Read(string file, int maximum)
         {
@@ -356,7 +361,7 @@ namespace Patchwork
                         {
                             byte[] before = ReadOriginal(full, originals);
                             bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
-                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" || op.Kind == "asarChecksum" ? "" : Decode(before) };
+                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" || op.Kind == "asarChecksum" || BinaryPatches.IsOperation(op.Kind) ? "" : Decode(before) };
                             change.AfterText = change.BeforeText;
                             files.Add(full, change);
                         }
@@ -376,6 +381,11 @@ namespace Patchwork
                             if (change.ChecksumOperation != null && (change.ChecksumOperation.Archive != op.Archive || change.ChecksumOperation.ArchiveSha256 != op.ArchiveSha256 || change.ChecksumOperation.Offset != op.Offset)) throw new InvalidOperationException("Conflicting ASAR companion checksums.");
                             change.ChecksumOperation = op;
                             change.Details.Add(patch.Name + ": update four-byte ASAR checksum · " + op.Archive);
+                        }
+                        else if (BinaryPatches.IsOperation(op.Kind))
+                        {
+                            change.BinaryOperations.Add(op);
+                            change.Details.Add(patch.Name + ": executable binary edit · " + (op.Entry ?? op.File));
                         }
                         else if (op.Kind == "jsonSet")
                         {
@@ -426,6 +436,12 @@ namespace Patchwork
                         if (!files.TryGetValue(Resolve(root, change.ChecksumOperation.Archive), out archive) || archive.AsarOperations.Count == 0 || archive.AfterBytes == null) throw new InvalidDataException("A companion checksum requires selected edits to its archive.");
                         change.AfterBytes = AsarChecksum.Transform(change.BeforeBytes, archive, change.ChecksumOperation);
                         change.BeforeText = AsarChecksum.Describe(change.BeforeBytes); change.AfterText = AsarChecksum.Describe(change.AfterBytes);
+                    }
+                    else if (change.BinaryOperations.Count > 0)
+                    {
+                        string beforeText, afterText;
+                        change.AfterBytes = change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText) : BinaryPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText);
+                        change.BeforeText = beforeText; change.AfterText = afterText;
                     }
                     else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes);
                     change.AfterHash = Hash(change.AfterBytes);

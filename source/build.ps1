@@ -7,10 +7,10 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $taskTarget = if ($Console) { 'exe' } else { 'winexe' }
 $taskOutput = Join-Path $OutputDirectory 'Patchwork.exe'
 $taskWpf = Join-Path $taskFramework 'WPF'
-$taskReferences = @('System.dll','System.Core.dll','System.Web.Extensions.dll','System.Windows.Forms.dll','System.Drawing.dll','System.Xaml.dll') | ForEach-Object { '/reference:' + (Join-Path $taskFramework $_) }
+$taskReferences = @('System.dll','System.Core.dll','System.Web.Extensions.dll','System.Windows.Forms.dll','System.Drawing.dll','System.Xaml.dll','System.IO.Compression.dll') | ForEach-Object { '/reference:' + (Join-Path $taskFramework $_) }
 $taskReferences += @('PresentationFramework.dll','PresentationCore.dll','WindowsBase.dll') | ForEach-Object { '/reference:' + (Join-Path $taskWpf $_) }
 $taskReferences += '/reference:' + (Join-Path $PSScriptRoot 'lib\Mono.Cecil.dll')
-$taskSources = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs' | Where-Object { $Tests -or $_.Name -notin @('SelfTests.cs','ManagedTests.cs','TestFixtures.cs','UpdaterTests.cs','SelectorTests.cs','SourceTests.cs','PatchUpdateTests.cs','ThemeTests.cs','PresentationTests.cs','ModuleTests.cs','AsarTests.cs') } | Select-Object -ExpandProperty FullName
+$taskSources = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs' | Where-Object { $Tests -or $_.Name -notin @('SelfTests.cs','ManagedTests.cs','TestFixtures.cs','UpdaterTests.cs','SelectorTests.cs','SourceTests.cs','PatchUpdateTests.cs','ThemeTests.cs','PresentationTests.cs','ModuleTests.cs','AsarTests.cs','BinaryTests.cs') } | Select-Object -ExpandProperty FullName
 $taskOptions = @('/nologo','/optimize+','/platform:x64',('/target:' + $taskTarget),('/out:' + $taskOutput),('/win32manifest:' + (Join-Path $PSScriptRoot 'app.manifest')),('/resource:' + (Join-Path $PSScriptRoot 'MainWindow.xaml') + ',Patchwork.MainWindow.xaml'))
 $taskIcon = Join-Path $PSScriptRoot 'Patchwork.ico'
 if ($Tests) { $taskOptions += '/define:TEST_BUILD' }

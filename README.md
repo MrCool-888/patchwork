@@ -1,6 +1,6 @@
-# Patchwork 0.8.2 prerelease
+# Patchwork 0.9.0 prerelease
 
-This experimental prerelease adds a transactional ASAR companion-checksum operation for the Blitz startup fix. Blitz pack 1.1.0 repairs the checksum mismatch that caused the older pack to exit with E6 and turns automatic Blitz client/frontend updates off by default. Automatic install-folder detection remains available. Live corrected Blitz startup and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
+Adds exact-fingerprinted executable byte edits and JAR class edits/additions for the separate Lunar Client 0.1.0 packs. Preview, apply, updates, rollback and exact restore cover the launcher executable, ASAR archive and game JAR in one transaction. Standard Lunar installations are detected under the Windows user folder. Empty-file ASAR integrity now accepts Electron’s canonical empty SHA-256 block and retains compatibility with earlier Patchwork histories. Live Lunar/Minecraft and multiplayer privacy validation remain pending. This installer includes no Lunar patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
