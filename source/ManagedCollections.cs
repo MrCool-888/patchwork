@@ -25,7 +25,7 @@ namespace Patchwork
             if (op.ElementGetter.Length > 2048 || op.FactoryMethod.Length > 2048) throw new InvalidDataException("Member signature is too long.");
             return true;
         }
-        static TypeReference Substitute(TypeReference type, GenericInstanceType instance)
+        internal static TypeReference Substitute(TypeReference type, GenericInstanceType instance)
         {
             var parameter = type as GenericParameter;
             if (parameter != null && parameter.Type == GenericParameterType.Type && instance != null) return instance.GenericArguments[parameter.Position];
@@ -35,7 +35,7 @@ namespace Patchwork
             foreach (var argument in generic.GenericArguments) result.GenericArguments.Add(Substitute(argument, instance));
             return result;
         }
-        static TypeReference Receiver(TypeReference current, TypeDefinition owner)
+        internal static TypeReference Receiver(TypeReference current, TypeDefinition owner)
         {
             for (int i = 0; current != null && i < 40; i++)
             {

@@ -17,7 +17,18 @@ namespace Patchwork
             {
                 op.Type = Json.String(raw, "type"); op.SetterMethod = Json.String(raw, "setterMethod");
                 if (!raw.TryGetValue("value", out op.Value) || !(op.Value is bool)) throw new InvalidDataException("Boolean setter override needs a boolean value.");
-                if (op.Kind == "managedOverrideConditionalBooleanSetter") ParseCondition(op, raw);
+                if (op.Kind == "managedOverrideConditionalBooleanSetter")
+                {
+                    ParseCondition(op, raw); object expected;
+                    if (raw.TryGetValue("conditionExpected", out expected))
+                    { if (!(expected is bool)) throw new InvalidDataException("conditionExpected must be boolean."); op.ConditionExpected = (bool)expected; }
+                    var exclusions = Json.Array(raw, "exclusions", true);
+                    if (exclusions.Count > 8) throw new InvalidDataException("At most eight boolean exclusions are allowed.");
+                    foreach (var exclusion in exclusions)
+                    {
+                        var holder = new PatchOperation(); ParseCondition(holder, new Dictionary<string, object> { { "condition", exclusion } }); op.Exclusions.Add(holder.Condition);
+                    }
+                }
                 return true;
             }
             if (op.Kind != "managedConditionalCall" && op.Kind != "managedConditionalBooleanCall" && op.Kind != "managedConditionalProjection") return false;
@@ -44,7 +55,7 @@ namespace Patchwork
             }
             return true;
         }
-        static void ParseCondition(PatchOperation op, Dictionary<string, object> raw)
+        internal static void ParseCondition(PatchOperation op, Dictionary<string, object> raw)
         {
             var chain = Json.Array(raw, "condition");
             if (chain.Count < 1 || chain.Count > 8 || chain.Any(x => !(x is string) || ((string)x).Length > 2048)) throw new InvalidDataException("Conditions need 1 to 8 field/getter signatures.");
@@ -82,7 +93,7 @@ namespace Patchwork
             }
             return false;
         }
-        static List<Instruction> Condition(ModuleDefinition module, MethodDefinition host, PatchOperation op)
+        internal static List<Instruction> Condition(ModuleDefinition module, MethodDefinition host, PatchOperation op)
         {
             if (host.IsStatic) throw new InvalidDataException("Conditions require an instance method.");
             var code = new List<Instruction> { Instruction.Create(OpCodes.Ldarg_0) };
@@ -94,13 +105,16 @@ namespace Patchwork
                     var local = new VariableDefinition(module.ImportReference(current)); host.Body.Variables.Add(local); host.Body.InitLocals = true;
                     code.Add(Instruction.Create(OpCodes.Stloc, local)); code.Add(Instruction.Create(OpCodes.Ldloca, local));
                 }
-                var owner = Type(module, Owner(member));
+                var owner = ConditionOwner(current, Owner(member));
                 if (!Inherits(current, owner)) throw new InvalidDataException("Condition member does not match its receiver.");
+                var receiver = ManagedCollections.Receiver(current, owner);
                 if (member.IndexOf('(') >= 0)
                 {
-                    var getter = Method(module, member);
+                    var getter = owner.Methods.SingleOrDefault(x => x.FullName == member);
+                    if (getter == null) throw new InvalidDataException("Condition getter signature was not found: " + member);
                     if (getter.IsStatic || getter.Parameters.Count != 0 || !getter.IsGetter || getter.HasGenericParameters) throw new InvalidDataException("Conditions permit only instance property getters.");
-                    code.Add(Instruction.Create(current.IsValueType ? OpCodes.Call : OpCodes.Callvirt, module.ImportReference(getter))); current = getter.ReturnType;
+                    if (!getter.IsPublic && getter.DeclaringType != host.DeclaringType && !getter.IsFamily && !getter.IsFamilyOrAssembly) throw new InvalidDataException("Condition getter is inaccessible.");
+                    code.Add(Instruction.Create(current.IsValueType ? OpCodes.Call : OpCodes.Callvirt, Bind(module, getter, receiver))); current = ManagedCollections.Substitute(getter.ReturnType, receiver as GenericInstanceType);
                 }
                 else
                 {
@@ -111,6 +125,19 @@ namespace Patchwork
             }
             if (current.FullName != "System.Boolean") throw new InvalidDataException("Condition must end in a boolean getter or field.");
             return code;
+        }
+        static TypeDefinition ConditionOwner(TypeReference receiver, string name)
+        {
+            // Referenced interfaces can inherit members whose owner has no direct TypeRef in the host PE.
+            var pending = new Queue<TypeReference>(); var seen = new HashSet<string>(); pending.Enqueue(receiver);
+            for (int depth = 0; pending.Count != 0 && depth < 120; depth++)
+            {
+                var current = pending.Dequeue(); if (!seen.Add(current.FullName)) continue;
+                var type = current.Resolve(); if (type.FullName == name) return type;
+                if (type.BaseType != null) pending.Enqueue(type.BaseType);
+                foreach (var contract in type.Interfaces) pending.Enqueue(contract.InterfaceType);
+            }
+            throw new InvalidDataException("Condition member does not match its receiver.");
         }
         static void InsertAfter(MethodDefinition method, Instruction original, IEnumerable<Instruction> instructions)
         {
@@ -206,7 +233,13 @@ namespace Patchwork
             if (op.Kind == "managedOverrideConditionalBooleanSetter")
             {
                 foreach (var instruction in Condition(module, replacement, op)) replacement.Body.Instructions.Add(instruction);
-                replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Brfalse, end));
+                replacement.Body.Instructions.Add(Instruction.Create(op.ConditionExpected ? OpCodes.Brfalse : OpCodes.Brtrue, end));
+                foreach (var exclusion in op.Exclusions)
+                {
+                    var guard = new PatchOperation { Condition = exclusion };
+                    foreach (var instruction in Condition(module, replacement, guard)) replacement.Body.Instructions.Add(instruction);
+                    replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Brtrue, end));
+                }
             }
             replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_0)); replacement.Body.Instructions.Add(Instruction.Create((bool)op.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)); replacement.Body.Instructions.Add(Instruction.Create(OpCodes.Call, module.ImportReference(setter))); replacement.Body.Instructions.Add(end);
             touched.Add(replacement);

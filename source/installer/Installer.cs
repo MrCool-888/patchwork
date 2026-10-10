@@ -19,8 +19,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Patchwork Setup")]
 [assembly: AssemblyProduct("Patchwork")]
-[assembly: AssemblyVersion("0.6.0.0")]
-[assembly: AssemblyFileVersion("0.6.0.0")]
+[assembly: AssemblyVersion("0.6.1.0")]
+[assembly: AssemblyFileVersion("0.6.1.0")]
 
 namespace PatchworkSetup
 {
@@ -34,7 +34,7 @@ namespace PatchworkSetup
     public static class InstallerEngine
     {
         public const string ProductId = "8b72ca27-3a4b-45af-9d7c-61951c6bdf70";
-        public const string Version = "0.6.0";
+        public const string Version = "0.6.1";
         const string Marker = "patchwork-install.json";
         const string RegistryPath = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Patchwork";
         static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 2 * 1024 * 1024 };
@@ -381,7 +381,7 @@ namespace PatchworkSetup
                 content.Children.Add(Text("Add separate patch files after installation.", 12, "#929DB1", 12));
             }
             else { content.Children.Add(Text("Restore any active patches in Patchwork before uninstalling if you want the target files returned to their originals.", 12, "#E9C985", 20)); }
-            status = Text("Version 0.6.0 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
+            status = Text("Version 0.6.1 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) }; Grid.SetRow(buttons, 1);
             cancel = Button("Cancel", false); cancel.Margin = new Thickness(0, 0, 12, 0); cancel.Click += delegate { Close(); }; buttons.Children.Add(cancel);
             action = Button(uninstall ? "Uninstall" : "Install Patchwork", true); action.Click += async delegate { await RunAction(); }; buttons.Children.Add(action); body.Children.Add(buttons);

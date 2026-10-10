@@ -75,6 +75,18 @@ Example option and resource entries:
 "resources": [{ "theme": "Dark", "key": "PrimaryColorBrush", "type": "brush", "value": "$accent" }]
 ```
 
+## Presentation operations (0.6.1)
+
+`managedEnumFilter` preserves a parameterless instance collection method and filters its returned List/IEnumerable/IReadOnlyList through a public enum `elementGetter` and declared integer `value`. Null collections remain null and null elements are excluded. An optional boolean `condition` chain preserves the original collection when true, for example for paid accounts. Original objects and source collections are retained.
+
+`managedEnumGuardNull` accepts `values`, one to sixteen declared integer enum constants. It returns null for those values of a single enum argument, retaining the original reference-returning method for other values. Generic, value-type, pointer and array results are rejected.
+
+`managedUiVisibility` appends a hide action to normal exits of an instance void hook. It targets the WinUI element itself or an exact same-type instance `field`. Hidden controls have Collapsed visibility, zero width/height and no hit target. With `fromParameter: true`, the hook must instead be a single boolean-argument method: true collapses the element and disables hit testing, false restores Visible and hit testing without altering its dimensions. Null fields are skipped. Receivers must expose the expected public WinUI UIElement/FrameworkElement setters.
+
+`managedOverrideConditionalBooleanSetter` additionally supports `conditionExpected` (boolean, default true) and up to eight `exclusions` (boolean field/getter chains). Any true exclusion retains the inherited restriction. Conditions resolve inherited interface members and bind generic receiver types explicitly.
+
+These operations retain exact original file hashes, full method/member signatures, bounded values/chains and conflict checks. Patch files cannot supply executable code.
+
 ## Conditional enumerable factories (0.6.0)
 
 managedEnumerableFactory targets a parameterless instance method returning IEnumerable<TOut>. condition, source, filter, factory and argument are arrays of 1–8 exact field/getter signatures starting at this. The boolean condition retains the original implementation when true. Otherwise source must end with an accessible parameterless method returning IEnumerable<TIn>. The filter chain returns a string. elementGetter is a public string getter on TIn; its value is compared to the filter with ordinal case-insensitive equality. factoryMethod is a public instance method taking (TIn, bool) and returning a type assignable to TOut. The factory chain supplies its receiver, and argument supplies the boolean parameter. No additional parameters, index-aware delegates or value-type receiver chains are supported.

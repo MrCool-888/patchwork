@@ -1,4 +1,4 @@
-# Patchwork 0.6.0
+# Patchwork 0.6.1
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -75,4 +75,4 @@ Self-test fixtures compile only with `-Tests` and are excluded from the installe
 
 See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
 
-Version 0.6.0 adds bounded enumerable filter/factory and WinUI color/brush resource operations. Proton pack 1.3.0 uses these for country expansion into individual free servers, AMOLED backgrounds, custom accent colors and custom switch colors. Update Patchwork before importing that pack. Guest sessions remain unavailable because Proton rejected the Windows credentialless compatibility probe. See the separate patch repository for evidence.
+Version 0.6.1 adds bounded enum collection filters, enum lookup guards, WinUI control visibility hooks and conditional boolean exclusions. Proton pack 1.4.0 uses these to hide paid country tabs for free accounts, remove additional upgrade controls and promotional offers, and keep standard Recents usable. Custom colors and direct patch upgrades are retained. Update Patchwork before importing the new pack. Android-identity guest compatibility succeeded through credential and certificate issuance; a functioning Windows guest client is still under development. See the separate patch repository for the evidence and limits.

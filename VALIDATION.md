@@ -40,4 +40,10 @@ No live Proton sign-in, VPN tunnel, Accelerator throughput, DNS leak protection,
 
 ## Color and WinUI operations
 
-Three new app scenarios test composed theme resources and generated-hook execution, normalized color choices, direct color updates, history persistence and exact restore; rejected XAML/color injection, unknown/unselected options, invalid resource keys/types/themes and resource conflicts; worker option freezing/tamper refusal and actual WPF preference fields. The separate pack probes verified 74 resources with the real WinUI XamlReader and five effective brush lookups. Full Proton page rendering remains untested. Guest compatibility was attempted against Proton’s API and rejected for Windows; the transient session was revoked.
+Three theme scenarios test composed resources, normalized choices, history, direct updates, exact restoration, worker tamper refusal and WPF preference fields. The native probe verified 74 resources and five lookups. Full Proton page rendering remains untested.
+
+## Version 0.6.1 presentation checks
+
+All 39 app scenarios passed. The two additional scenarios execute enum collection filters/lookup guards and WinUI visibility hooks, testing nulls, multiple returns, original object/list identity, paid preservation and restoring available controls. Invalid UI receivers/fields, hook arguments and undeclared enum values are refused. Conditional restriction chains bind inherited generic types and support expected-false conditions and exclusions.
+
+Proton pack 1.3.0 to 1.4.0 direct upgrade passed on a complete copy, including an older journal without patch IDs, eight tracked assemblies, deterministic previews, color history and exact restoration. Separate probes passed 87 actual method checks and seven real WinUI promotional-control checks. Normal account plan, maintenance and server eligibility checks remain active. The Android-identity guest API experiment obtained a session, VPN credentials and a Windows-identity certificate, then revoked both sessions; client integration and a real tunnel remain unimplemented.

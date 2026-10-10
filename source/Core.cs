@@ -83,6 +83,11 @@ namespace Patchwork
         public int Count;
         public string ReplacementMethod, SourceMethod, SetterMethod;
         public List<string> Condition = new List<string>();
+        public bool ConditionExpected = true;
+        public List<List<string>> Exclusions = new List<List<string>>();
+        public string UiField;
+        public bool UiFromParameter;
+        public List<int> EnumValues = new List<int>();
         public List<Dictionary<string, string>> Mappings = new List<Dictionary<string, string>>();
         public List<string> SourceChain = new List<string>(), FilterChain = new List<string>(), FactoryChain = new List<string>(), ArgumentChain = new List<string>();
         public string ElementGetter, FactoryMethod;
