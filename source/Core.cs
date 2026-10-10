@@ -84,6 +84,9 @@ namespace Patchwork
         public string ReplacementMethod, SourceMethod, SetterMethod;
         public List<string> Condition = new List<string>();
         public List<Dictionary<string, string>> Mappings = new List<Dictionary<string, string>>();
+        public List<string> SourceChain = new List<string>(), FilterChain = new List<string>(), FactoryChain = new List<string>(), ArgumentChain = new List<string>();
+        public string ElementGetter, FactoryMethod;
+        public List<ThemeResource> Resources = new List<ThemeResource>();
     }
     public class PatchDefinition
     {
@@ -91,6 +94,7 @@ namespace Patchwork
         public List<string> Dependencies = new List<string>();
         public List<string> Conflicts = new List<string>();
         public List<PatchOperation> Operations = new List<PatchOperation>();
+        public List<PatchColorOption> Options = new List<PatchColorOption>();
         public bool Ready { get { return Status == "ready"; } }
     }
     public class PatchBundle
@@ -124,6 +128,7 @@ namespace Patchwork
                 if (!ids.Add(patch.Id)) throw new InvalidDataException("Duplicate patch ID: " + patch.Id);
                 patch.Dependencies = Strings(Json.Array(raw, "dependencies", true));
                 patch.Conflicts = Strings(Json.Array(raw, "conflicts", true));
+                patch.Options = ThemeOptions.ParseOptions(raw);
                 foreach (object operation in Json.Array(raw, "operations"))
                 {
                     var opRaw = Json.Object(operation);
@@ -153,6 +158,7 @@ namespace Patchwork
                     patch.Operations.Add(op);
                 }
                 if (patch.Ready && patch.Operations.Count == 0 || patch.Operations.Count > 100 || !patch.Ready && patch.Operations.Count != 0) throw new InvalidDataException("Available patches need 1 to 100 operations; planned patches must have none.");
+                ThemeOptions.Validate(patch);
                 bundle.Patches.Add(patch);
             }
             if (bundle.Patches.Count == 0 || bundle.Patches.Count > 100) throw new InvalidDataException("Bundles need 1 to 100 patches.");
@@ -206,6 +212,7 @@ namespace Patchwork
     }
     public class PatchPlan
     {
+        public Dictionary<string, string> Options = new Dictionary<string, string>();
         public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256, PackVersion, BundleSha256, VersionCurrentSha256, PreviousJournalId;
         public DateTime CreatedUtc;
         public List<string> PatchIds = new List<string>();
@@ -223,6 +230,7 @@ namespace Patchwork
     }
     public class Journal
     {
+        public Dictionary<string, string> Options { get; set; }
         public string Id { get; set; }
         public string AppName { get; set; }
         public string AppVersion { get; set; }
@@ -388,7 +396,7 @@ namespace Patchwork
                     if (Hash(Read(Resolve(plan.TargetRoot, change.RelativePath))) != change.BeforeHash) throw new InvalidOperationException("A file changed after preview: " + change.RelativePath + ". Preview again.");
                 var journal = new Journal {
                     Id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8), AppName = plan.AppName, AppVersion = plan.AppVersion,
-                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), PatchIds = plan.PatchIds.ToList(), PreviousJournalId = plan.PreviousJournalId, RestoreToPrevious = previous != null, Files = new List<JournalFile>()
+                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), PatchIds = plan.PatchIds.ToList(), Options = new Dictionary<string, string>(plan.Options), PreviousJournalId = plan.PreviousJournalId, RestoreToPrevious = previous != null, Files = new List<JournalFile>()
                 };
                 journal.DirectoryPath = Path.Combine(DataRoot, "history", journal.Id);
                 Directory.CreateDirectory(journal.DirectoryPath);

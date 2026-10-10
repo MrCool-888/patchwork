@@ -140,6 +140,9 @@ namespace Patchwork
             Test("Failed and interrupted updates recover previous patches; committed history stays consistent", () => PatchUpdateTests.RollbackAndRecovery(root));
             Test("Patched version files, old journals and worker update requests are supported", () => PatchUpdateTests.PatchedVersionFileAndWorker(root));
             Test("Pack metadata updates retain exact original backups", () => PatchUpdateTests.MetadataUpdate(root));
+            Test("Theme resources compose, execute, save color choices and update without restore", () => ThemeTests.RuntimeAndUpdates(root));
+            Test("Theme options reject XAML injection, unknown choices, resource types and conflicts", () => ThemeTests.Validation(root));
+            Test("Worker freezes color choices and theme controls save preferences", () => ThemeTests.WorkerAndInterface(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;

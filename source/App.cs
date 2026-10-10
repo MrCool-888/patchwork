@@ -100,7 +100,7 @@ namespace Patchwork
         {
             this.window = window; engine = new PatchEngine(dataRoot);
             InitializeSources();
-            LoadSettings(); LoadRecipes();
+            LoadSettings(); LoadColorOptions(); LoadRecipes();
             Control<TextBlock>("UpdateVersion").Text = "Installed v" + Updates.DisplayVersion + " · " + Updates.Repository;
             Control<CheckBox>("AutoUpdateCheck").IsChecked = LoadUpdatePreference();
             Control<CheckBox>("AutoUpdateCheck").Click += delegate { SaveUpdatePreference(); };
@@ -260,6 +260,7 @@ namespace Patchwork
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
+                if (patch.Ready && selected.Contains(patch.Id)) AddColorOptions(content, patch);
                 grid.Children.Add(content); card.Child = grid; container.Children.Add(card);
             }
         }
@@ -346,7 +347,7 @@ namespace Patchwork
             if (current == null) return;
             try
             {
-                preview = engine.Preview(current, targets[current.Id], selected);
+                preview = engine.Preview(current, targets[current.Id], selected, SelectedOptions());
                 var picker = Control<ComboBox>("PreviewFilePicker"); picker.Items.Clear();
                 foreach (var file in preview.Files) picker.Items.Add(file.RelativePath);
                 int firstChanged = preview.Files.FindIndex(x => x.BeforeHash != x.AfterHash);
@@ -521,6 +522,7 @@ namespace Patchwork
             else if (shot == "updates") { ShowPage("about"); window.UpdateLayout(); Control<ScrollViewer>("AboutScroll").ScrollToEnd(); }
             else if (shot == "history" || shot == "empty-history") ShowPage("history");
             else if (shot == "sources") ShowPage("sources");
+            else if (shot == "themes") { foreach (var patch in current.Patches.Where(x => x.Ready && x.Category == "Appearance")) selected.Add(patch.Id); Control<TextBox>("SearchBox").Text = "Appearance"; RenderPatches(); UpdateSession(); ShowPage("library"); }
         }
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
         static void DarkTitleBar(Window window) { try { int enabled = 1; DwmSetWindowAttribute(new WindowInteropHelper(window).Handle, 20, ref enabled, sizeof(int)); } catch { } }

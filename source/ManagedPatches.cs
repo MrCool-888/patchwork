@@ -11,14 +11,14 @@ namespace Patchwork
     // Patch files describe a small set of IL edits; they cannot supply code, assemblies or commands.
     public static class ManagedPatches
     {
-        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter", "managedOverrideConditionalBooleanSetter" };
+        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter", "managedOverrideConditionalBooleanSetter", "managedEnumerableFactory", "managedThemeResources" };
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
             if (!Kinds.Contains(op.Kind)) throw new InvalidDataException("Unknown operation: " + op.Kind);
             if (!op.File.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Managed operations require a .dll file.");
             op.Method = Json.String(raw, "method");
             if (String.IsNullOrWhiteSpace(op.Method) || op.Method.Length > 2048) throw new InvalidDataException("A complete managed method signature is required.");
-            if (ManagedSelectors.Parse(op, raw)) return;
+            if (ManagedSelectors.Parse(op, raw) || ManagedCollections.Parse(op, raw) || ManagedThemes.Parse(op, raw)) return;
             if (op.Kind == "managedReturn")
             {
                 op.ReturnType = Json.String(raw, "returnType");
@@ -103,9 +103,15 @@ namespace Patchwork
                     if (!method.HasBody) throw new InvalidDataException("Cannot edit a method without IL: " + op.Method);
                     bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument" || op.Kind == "managedOverrideBooleanSetter" || op.Kind == "managedOverrideConditionalBooleanSetter";
                     string key = isOverride ? op.Type + "::" + method.Name : method.FullName;
-                    if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || isOverride)
+                    if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || op.Kind == "managedEnumerableFactory" || isOverride)
                     {
                         if (!returns.Add(key) || edits.Contains(key)) throw new InvalidOperationException("Conflicting managed method edits: " + key);
+                    }
+                    else if (op.Kind == "managedThemeResources")
+                    {
+                        if (returns.Contains(key)) throw new InvalidOperationException("Conflicting managed theme edits: " + key);
+                        foreach (var resource in op.Resources) if (!edits.Add(key + "|theme|" + resource.Theme + "|" + resource.Key)) throw new InvalidOperationException("Conflicting theme resource: " + resource.Key);
+                        edits.Add(key);
                     }
                     else
                     {
@@ -113,7 +119,7 @@ namespace Patchwork
                         edits.Add(key);
                     }
                     if (!touched.Contains(method) && !isOverride) { before.AppendLine(Describe(method)); touched.Add(method); }
-                    if (ManagedSelectors.Transform(module, method, op, touched, before)) { }
+                    if (ManagedSelectors.Transform(module, method, op, touched, before) || ManagedCollections.Transform(module, method, op, touched) || ManagedThemes.Transform(module, method, op)) { }
                     else if (op.Kind == "managedReturn") SetReturn(method, op);
                     else if (isOverride)
                     {

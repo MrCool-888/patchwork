@@ -50,7 +50,7 @@ namespace Patchwork
             if (chain.Count < 1 || chain.Count > 8 || chain.Any(x => !(x is string) || ((string)x).Length > 2048)) throw new InvalidDataException("Conditions need 1 to 8 field/getter signatures.");
             op.Condition = chain.Cast<string>().ToList();
         }
-        static TypeDefinition Type(ModuleDefinition module, string name)
+        internal static TypeDefinition Type(ModuleDefinition module, string name)
         {
             var local = ManagedPatches.Types(module.Types).SingleOrDefault(x => x.FullName == name);
             if (local != null) return local;
@@ -58,20 +58,20 @@ namespace Patchwork
             if (reference == null) throw new InvalidDataException("Type signature was not found: " + name);
             return reference.Resolve();
         }
-        static string Owner(string signature)
+        internal static string Owner(string signature)
         {
             int end = signature.IndexOf("::", StringComparison.Ordinal);
             if (end < 1) throw new InvalidDataException("A full member signature is required.");
             int start = signature.LastIndexOf(' ', end);
             return signature.Substring(start + 1, end - start - 1);
         }
-        static MethodDefinition Method(ModuleDefinition module, string signature)
+        internal static MethodDefinition Method(ModuleDefinition module, string signature)
         {
             var matches = Type(module, Owner(signature)).Methods.Where(x => x.FullName == signature).ToList();
             if (matches.Count != 1) throw new InvalidDataException("Method signature was not found: " + signature);
             return matches[0];
         }
-        static bool Inherits(TypeReference receiver, TypeReference owner)
+        internal static bool Inherits(TypeReference receiver, TypeReference owner)
         {
             for (int depth = 0; receiver != null && depth < 40; depth++)
             {
@@ -117,9 +117,9 @@ namespace Patchwork
             var il = method.Body.GetILProcessor(); var cursor = original;
             foreach (var next in instructions) { il.InsertAfter(cursor, next); cursor = next; }
         }
-        static GenericInstanceMethod Linq(ModuleDefinition module, string name, int argumentCount, params TypeReference[] arguments)
+        internal static GenericInstanceMethod Linq(ModuleDefinition module, string name, int argumentCount, params TypeReference[] arguments)
         {
-            var existing = module.GetMemberReferences().OfType<MethodReference>().FirstOrDefault(x => x.DeclaringType.FullName == "System.Linq.Enumerable" && x.Name == name && x.Parameters.Count == argumentCount && x.GenericParameters.Count == arguments.Length && (name != "Select" || x.Parameters[1].ParameterType.FullName.StartsWith("System.Func`2", StringComparison.Ordinal)));
+            var existing = module.GetMemberReferences().OfType<MethodReference>().FirstOrDefault(x => x.DeclaringType.FullName == "System.Linq.Enumerable" && x.Name == name && x.Parameters.Count == argumentCount && x.GenericParameters.Count == arguments.Length && (name != "Select" && name != "Where" || x.Parameters[1].ParameterType.FullName.StartsWith("System.Func`2", StringComparison.Ordinal)));
             if (existing == null) throw new InvalidDataException("Compatible LINQ method was not found: " + name);
             var generic = new GenericInstanceMethod(module.ImportReference(existing));
             foreach (var argument in arguments) generic.GenericArguments.Add(module.ImportReference(argument));
@@ -178,7 +178,7 @@ namespace Patchwork
             code.Add(Instruction.Create(OpCodes.Call, Linq(module, "Select", 2, input, output))); code.Add(Instruction.Create(OpCodes.Call, Linq(module, "ToList", 1, output))); code.Add(Instruction.Create(OpCodes.Ret));
             var il = method.Body.GetILProcessor(); foreach (var instruction in code) il.InsertBefore(first, instruction);
         }
-        static MethodReference Bind(ModuleDefinition module, MethodDefinition method, TypeReference owner)
+        internal static MethodReference Bind(ModuleDefinition module, MethodDefinition method, TypeReference owner)
         {
             var reference = new MethodReference(method.Name, module.ImportReference(method.ReturnType), module.ImportReference(owner)) { HasThis = true, CallingConvention = method.CallingConvention };
             foreach (var parameter in method.Parameters) reference.Parameters.Add(new ParameterDefinition(module.ImportReference(parameter.ParameterType)));

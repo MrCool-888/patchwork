@@ -39,7 +39,7 @@ namespace Patchwork
             var job = new Dictionary<string, object> { { "mode", restore == null ? "apply" : "restore" }, { "targetRoot", restore == null ? plan.TargetRoot : restore.TargetRoot } };
             if (restore == null)
             {
-                job["bundle"] = bundle.Content; job["selected"] = plan.PatchIds;
+                job["bundle"] = bundle.Content; job["selected"] = plan.PatchIds; job["options"] = plan.Options;
                 job["before"] = plan.Files.ToDictionary(x => x.RelativePath, x => x.BeforeHash);
                 job["after"] = plan.Files.ToDictionary(x => x.RelativePath, x => x.AfterHash);
                 job["previousJournalId"] = plan.PreviousJournalId ?? "";
@@ -62,7 +62,8 @@ namespace Patchwork
                 if (mode == "apply")
                 {
                     var bundle = PatchBundle.Parse(Json.String(job, "bundle"));
-                    var plan = engine.Preview(bundle, target, Json.Array(job, "selected").Cast<string>());
+                    object options; job.TryGetValue("options", out options);
+                    var plan = engine.Preview(bundle, target, Json.Array(job, "selected").Cast<string>(), ThemeOptions.Read(options));
                     if ((plan.PreviousJournalId ?? "") != Json.String(job, "previousJournalId", "")) throw new InvalidOperationException("The applied session changed after preview. Preview again.");
                     var before = Json.Object(job["before"]); var after = Json.Object(job["after"]);
                     if (before.Count != plan.Files.Count || after.Count != plan.Files.Count || plan.Files.Any(x => !before.ContainsKey(x.RelativePath) || !after.ContainsKey(x.RelativePath) || (string)before[x.RelativePath] != x.BeforeHash || (string)after[x.RelativePath] != x.AfterHash)) throw new InvalidOperationException("Files or patches changed after preview. Preview again.");

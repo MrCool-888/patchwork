@@ -49,6 +49,16 @@ namespace Patchwork
         }
         public PatchPlan Preview(PatchBundle bundle, string root, IEnumerable<string> selection)
         {
+            return Preview(bundle, root, selection, null);
+        }
+        public PatchPlan Preview(PatchBundle bundle, string root, IEnumerable<string> selection, Dictionary<string, string> options)
+        {
+            var ids = selection.ToList(); Dictionary<string, string> choices;
+            var resolved = ThemeOptions.Resolve(bundle, ids, options, out choices);
+            var plan = PreviewResolved(resolved, root, ids); plan.Options = choices; return plan;
+        }
+        PatchPlan PreviewResolved(PatchBundle bundle, string root, IEnumerable<string> selection)
+        {
             lock (transactionLock)
             {
                 if (!Directory.Exists(root)) throw new DirectoryNotFoundException("Choose an existing target folder.");
