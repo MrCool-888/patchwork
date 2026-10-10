@@ -14,12 +14,14 @@ namespace Patchwork
         public Version Version;
         public string Tag, PageUrl, InstallerUrl, Sha256;
         public long Size;
+        public bool Prerelease;
     }
     public static class Updates
     {
         public const string Repository = "MrCool-888/patchwork";
         public const string ReleasesUrl = "https://github.com/" + Repository + "/releases";
         public const string LatestApi = "https://api.github.com/repos/" + Repository + "/releases/latest";
+        public const string AllReleasesApi = "https://api.github.com/repos/" + Repository + "/releases?per_page=100";
         public static Version InstalledVersion { get { return Assembly.GetExecutingAssembly().GetName().Version; } }
         public static string DisplayVersion { get { return InstalledVersion.ToString(3); } }
         const int MaximumInstaller = 16 * 1024 * 1024;
@@ -39,9 +41,13 @@ namespace Patchwork
             return new ProcessStartInfo(installer, args) { UseShellExecute = true, WorkingDirectory = folder };
         }
 
-        public static AppRelease Check()
+        public static AppRelease Check() { return Check(false); }
+        public static AppRelease Check(bool includePrereleases)
         {
-            try { return Parse(PatchEngine.Decode(Fetch(LatestApi, 1024 * 1024)), InstalledVersion); }
+            try {
+                string content = PatchEngine.Decode(Fetch(includePrereleases ? AllReleasesApi : LatestApi, 1024 * 1024));
+                return includePrereleases ? ParseChannel(content, InstalledVersion, true) : Parse(content, InstalledVersion);
+            }
             catch (GitHubHttpException error)
             {
                 if (error.StatusCode == 404) throw new IOException("No published patcher release was found on GitHub.");
@@ -56,13 +62,30 @@ namespace Patchwork
                 throw new IOException("Could not reach GitHub. Check your connection and try again.", error);
             }
         }
-        public static AppRelease Parse(string json, Version installed)
+        public static AppRelease Parse(string json, Version installed) { return Parse(json, installed, false); }
+        public static AppRelease ParseChannel(string json, Version installed, bool includePrereleases)
+        {
+            var releases = Json.Serializer.DeserializeObject(json) as object[];
+            if (releases == null || releases.Length > 100) throw new InvalidDataException("Invalid app release list.");
+            var candidates = new List<AppRelease>();
+            foreach (var item in releases) {
+                var value = Json.Object(item); object draft, prerelease;
+                if (!value.TryGetValue("draft", out draft) || !(draft is bool) || !value.TryGetValue("prerelease", out prerelease) || !(prerelease is bool)) throw new InvalidDataException("Invalid app release channel.");
+                if ((bool)draft || (!includePrereleases && (bool)prerelease)) continue;
+                if (!Regex.IsMatch(Json.String(value, "tag_name"), @"^v\d+\.\d+\.\d+(\.\d+)?$")) continue;
+                var candidate = Parse(Json.Pretty(value), installed, includePrereleases);
+                if (candidate != null) candidates.Add(candidate);
+            }
+            return candidates.OrderByDescending(x => x.Version).FirstOrDefault();
+        }
+        public static AppRelease Parse(string json, Version installed, bool includePrereleases)
         {
             var value = Json.Parse(json);
             object flag;
             if (!value.TryGetValue("draft", out flag) || !(flag is bool) || (bool)flag ||
-                !value.TryGetValue("prerelease", out flag) || !(flag is bool) || (bool)flag)
-                throw new InvalidDataException("Only published stable releases can update the app.");
+                !value.TryGetValue("prerelease", out flag) || !(flag is bool) || ((bool)flag && !includePrereleases))
+                throw new InvalidDataException("This release is not published in the selected update channel.");
+            bool prerelease = (bool)flag;
             string tag = Json.String(value, "tag_name");
             Version version;
             if (!Regex.IsMatch(tag, @"^v\d+\.\d+\.\d+(\.\d+)?$") || !Version.TryParse(tag.Substring(1), out version))
@@ -82,7 +105,7 @@ namespace Patchwork
             object sizeValue; long size;
             if (!asset.TryGetValue("size", out sizeValue) || !(sizeValue is int || sizeValue is long) || !Int64.TryParse(sizeValue.ToString(), out size) || size <= 0 || size > MaximumInstaller)
                 throw new InvalidDataException("The release installer size is unsupported.");
-            return new AppRelease { Version = version, Tag = tag, PageUrl = pageUrl, InstallerUrl = url, Sha256 = digest.Substring(7).ToLowerInvariant(), Size = size };
+            return new AppRelease { Version = version, Tag = tag, PageUrl = pageUrl, InstallerUrl = url, Sha256 = digest.Substring(7).ToLowerInvariant(), Size = size, Prerelease = prerelease };
         }
         public static string Download(AppRelease release, string dataRoot)
         {

@@ -1,4 +1,10 @@
-# Patchwork 0.6.0 validation
+# Patchwork validation
+
+## Experimental 0.7.0 prerelease
+
+The app test build passes **41 scenarios, zero failures**. Managed client tests verify actual fallback/after execution, preservation of original behavior, one embedded resource per payload, and refusal of invalid hashes, entries and target signatures. Client modules are identified automatically in the library and with their SHA-256 in preview; they are never executed during import, preview or application. The installer still excludes patch definitions and client modules. This is a prerelease; Proton guest tunnel validation remains pending. App updater tests cover opt-in prereleases, draft exclusion, no downgrade and unchanged integrity checks.
+
+## Earlier published checks
 
 Built and checked on Windows x64 on October 9, 2026. Target-file changes and installer tests used workspace copies or generated fixtures. The user's installed Proton files, account settings, registry and shortcuts were not changed.
 

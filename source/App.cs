@@ -104,6 +104,8 @@ namespace Patchwork
             Control<TextBlock>("UpdateVersion").Text = "Installed v" + Updates.DisplayVersion + " · " + Updates.Repository;
             Control<CheckBox>("AutoUpdateCheck").IsChecked = LoadUpdatePreference();
             Control<CheckBox>("AutoUpdateCheck").Click += delegate { SaveUpdatePreference(); };
+            Control<CheckBox>("AppPrereleases").IsChecked = LoadUpdatePreference("includePrereleases", false);
+            Control<CheckBox>("AppPrereleases").Click += delegate { SaveUpdatePreference(); availableUpdate = null; Control<Button>("InstallUpdateButton").Visibility = Visibility.Collapsed; };
             Control<Button>("CheckUpdatesButton").Click += async delegate { await CheckUpdates(true); };
             Control<Button>("InstallUpdateButton").Click += async delegate { await InstallUpdate(); };
             Control<Button>("ReleasesButton").Click += delegate { OpenReleasePage(); };
@@ -135,20 +137,21 @@ namespace Patchwork
             if (recoveries > 0) Notify(recoveries + " unfinished transaction(s). Open History & restore to recover.", true);
         }
         T Control<T>(string name) where T : FrameworkElement { return (T)window.FindName(name); }
-        bool LoadUpdatePreference()
+        bool LoadUpdatePreference() { return LoadUpdatePreference("checkOnStartup", true); }
+        bool LoadUpdatePreference(string key, bool missing)
         {
             try
             {
                 string file = Path.Combine(engine.DataRoot, "update-settings.json");
-                if (!File.Exists(file)) return true;
+                if (!File.Exists(file)) return missing;
                 object enabled; var settings = Json.Parse(File.ReadAllText(file));
-                return settings.TryGetValue("checkOnStartup", out enabled) && enabled is bool && (bool)enabled;
+                return settings.TryGetValue(key, out enabled) && enabled is bool ? (bool)enabled : missing;
             }
             catch { return false; }
         }
         void SaveUpdatePreference()
         {
-            try { File.WriteAllText(Path.Combine(engine.DataRoot, "update-settings.json"), Json.Pretty(new Dictionary<string, object> { { "checkOnStartup", Control<CheckBox>("AutoUpdateCheck").IsChecked == true } }), new UTF8Encoding(false)); }
+            try { File.WriteAllText(Path.Combine(engine.DataRoot, "update-settings.json"), Json.Pretty(new Dictionary<string, object> { { "checkOnStartup", Control<CheckBox>("AutoUpdateCheck").IsChecked == true }, { "includePrereleases", Control<CheckBox>("AppPrereleases").IsChecked == true } }), new UTF8Encoding(false)); }
             catch (Exception error) { Notify("Could not save update preference: " + error.Message, true); }
         }
         public async Task StartUpdateChecks()
@@ -159,25 +162,28 @@ namespace Patchwork
         {
             if (checkingUpdates || busy) return;
             checkingUpdates = true; Control<Button>("CheckUpdatesButton").IsEnabled = false;
+            Control<CheckBox>("AppPrereleases").IsEnabled = false;
             Control<Button>("InstallUpdateButton").Visibility = Visibility.Collapsed;
             Control<TextBlock>("UpdateStatus").Text = "Checking GitHub releases…";
             availableUpdate = null;
             try
             {
-                availableUpdate = await Task.Run(() => Updates.Check());
-                string result = availableUpdate == null ? "You're up to date. Installed v" + Updates.DisplayVersion + "." : "Version " + availableUpdate.Tag + " is available. Downloading verifies GitHub's SHA-256 digest before opening setup.";
+                bool prereleases = Control<CheckBox>("AppPrereleases").IsChecked == true;
+                availableUpdate = await Task.Run(() => Updates.Check(prereleases));
+                string result = availableUpdate == null ? "You're up to date. Installed v" + Updates.DisplayVersion + "." : "Version " + availableUpdate.Tag + (availableUpdate.Prerelease ? " (prerelease)" : "") + " is available. Downloading verifies GitHub's SHA-256 digest before opening setup.";
                 Control<TextBlock>("UpdateStatus").Text = result;
                 Control<Button>("InstallUpdateButton").Visibility = availableUpdate == null ? Visibility.Collapsed : Visibility.Visible;
                 if (manual || availableUpdate != null) Notify(availableUpdate == null ? result : "An app update is available. Open About this build to install it.");
             }
             catch (Exception error) { Control<TextBlock>("UpdateStatus").Text = error.Message; if (manual) Notify(error.Message, true); }
-            finally { checkingUpdates = false; Control<Button>("CheckUpdatesButton").IsEnabled = true; }
+            finally { checkingUpdates = false; Control<Button>("CheckUpdatesButton").IsEnabled = true; Control<CheckBox>("AppPrereleases").IsEnabled = true; }
         }
         async Task InstallUpdate()
         {
             if (availableUpdate == null || checkingUpdates || busy) return;
             var release = availableUpdate;
             SetBusy(true); Control<Button>("InstallUpdateButton").IsEnabled = false; Control<Button>("CheckUpdatesButton").IsEnabled = false;
+            Control<CheckBox>("AppPrereleases").IsEnabled = false;
             Control<TextBlock>("UpdateStatus").Text = "Downloading " + release.Tag + " and verifying its installer…";
             try
             {
@@ -190,6 +196,7 @@ namespace Patchwork
             catch (Exception error)
             {
                 SetBusy(false); Control<Button>("InstallUpdateButton").IsEnabled = true; Control<Button>("CheckUpdatesButton").IsEnabled = true;
+                Control<CheckBox>("AppPrereleases").IsEnabled = true;
                 Control<TextBlock>("UpdateStatus").Text = error.Message; Notify("Update failed: " + error.Message, true);
             }
         }
@@ -260,6 +267,9 @@ namespace Patchwork
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
+                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook")) {
+                    var code = Text("Executable client code · runs inside the target app", 11, "#E5BB77"); code.Margin = new Thickness(0, 7, 0, 0); content.Children.Add(code);
+                }
                 if (patch.Ready && selected.Contains(patch.Id)) AddColorOptions(content, patch);
                 grid.Children.Add(content); card.Child = grid; container.Children.Add(card);
             }

@@ -52,7 +52,7 @@ Example operation (replace the hash and signature with verified values):
 }
 ```
 
-Identical managed operations shared by two patches merge. Different replacements of one method or one call conflict. A full-body replacement conflicts with call edits in that method. Different call targets in one method can compose. Short branches are expanded before writing. No arbitrary IL, imported code, commands, executable payloads, or downloads are accepted.
+Identical managed operations shared by two patches merge. Different replacements of one method or one call conflict. A full-body replacement conflicts with call edits in that method. Different call targets in one method can compose. Short branches are expanded before writing. Declarative operations do not accept arbitrary IL, commands or downloads. The explicit managed client hook below accepts executable library code.
 
 Restoration is based on verified original bytes, not inverse operations. Patchwork 0.5.0 updates a selection from verified backups without a manual restore, including removing edits no longer selected. An updated app needs a new matching pack; changing the version label or bypassing fingerprints is not a compatibility upgrade.
 
@@ -85,10 +85,18 @@ Example option and resource entries:
 
 `managedOverrideConditionalBooleanSetter` additionally supports `conditionExpected` (boolean, default true) and up to eight `exclusions` (boolean field/getter chains). Any true exclusion retains the inherited restriction. Conditions resolve inherited interface members and bind generic receiver types explicitly.
 
-These operations retain exact original file hashes, full method/member signatures, bounded values/chains and conflict checks. Patch files cannot supply executable code.
+These presentation operations retain exact original file hashes, full method/member signatures, bounded values/chains and conflict checks. They accept no executable payloads.
 
 ## Conditional enumerable factories (0.6.0)
 
 managedEnumerableFactory targets a parameterless instance method returning IEnumerable<TOut>. condition, source, filter, factory and argument are arrays of 1–8 exact field/getter signatures starting at this. The boolean condition retains the original implementation when true. Otherwise source must end with an accessible parameterless method returning IEnumerable<TIn>. The filter chain returns a string. elementGetter is a public string getter on TIn; its value is compared to the filter with ordinal case-insensitive equality. factoryMethod is a public instance method taking (TIn, bool) and returning a type assignable to TOut. The factory chain supplies its receiver, and argument supplies the boolean parameter. No additional parameters, index-aware delegates or value-type receiver chains are supported.
 
 Fields must be accessible. The one exception is a sole condition member reading an inherited private boolean in the edited assembly; a same-assembly getter is added to that field's own type, with generic ancestors bound correctly. Typed private predicate/projector helpers and existing target-runtime LINQ references implement the operation. It conflicts with another full replacement of the same method. It accepts no scripts, IL or binary payloads.
+
+## Managed client hooks (0.7.0)
+
+`managedEmbeddedHook` is executable client code, explicitly identified in the library and preview. In addition to `file`, original `sha256` and full `method`, supply `moduleBase64`, exact `moduleSha256`, `entryType`, `entryMethod`, and `mode`. The payload must be an IL-only managed library, 512–262144 bytes, without a module initializer or application entry point. The entry is one public static `object Entry(object receiver, object[] arguments)` on a public non-generic class, without overloads or generic parameters.
+
+`mode: "fallback"` calls the entry before an instance reference-returning method. A non-null result is cast and returned; null runs the original method. `mode: "after"` calls the entry at normal exits of an instance void method, including constructors, and ignores its result. Generic targets, value-type receivers, pointers, by-reference parameters and more than eight arguments are unsupported. Hooks conflict with other edits of the same method; identical hooks merge. A payload is embedded once per edited assembly and loaded lazily inside the target process.
+
+Import, preview and apply validate metadata and bytes with Mono.Cecil, without loading or running client code in Patchwork. This is not a code sandbox or publisher signature: the library can use the target process's permissions, networking and native APIs. Authors should publish the corresponding source and reproducible build instructions. Exact original target fingerprints, transactional backups, direct updates and restore remain mandatory.

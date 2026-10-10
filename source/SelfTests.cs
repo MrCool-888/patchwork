@@ -145,6 +145,8 @@ namespace Patchwork
             Test("Worker freezes color choices and theme controls save preferences", () => ThemeTests.WorkerAndInterface(root));
             Test("UI hiding and enum filtering execute with branches, nulls and paid preservation", () => PresentationTests.Runtime(root));
             Test("Presentation operations refuse wrong UI receivers, parameters and enum values", () => PresentationTests.Validation(root));
+            Test("Embedded client fallback preserves original behavior and after hooks", () => ModuleTests.Runtime(root));
+            Test("Embedded client modules refuse invalid hashes, entries and signatures", () => ModuleTests.Validation(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;

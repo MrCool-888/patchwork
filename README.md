@@ -1,4 +1,6 @@
-# Patchwork 0.6.1
+# Patchwork 0.7.0 prerelease
+
+This experimental prerelease supports the separate Proton guest patch. A real installed-client guest connection remains unverified. The current stable patcher remains 0.6.1.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -36,7 +38,7 @@ This updates patches for the supported target version. Installing a new Proton v
 
 ## Patcher app updates
 
-In **About this build → App updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts/prereleases. Offline or rate-limit failures leave the app usable.
+In **About this build → App updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts. Stable is the default channel. Enable **Include prerelease app updates (experimental)** to check published prereleases too. The option persists and keeps the same digest/size checks. Patchwork 0.6.1 and earlier need this first prerelease installer downloaded once; they cannot discover prerelease app updates. Offline or rate-limit failures leave the app usable.
 
 When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. Setup releases the inherited working folder and waits for the old app process to exit before replacing files. A custom recognized installation is updated in place. If the app remains open for 30 seconds, setup asks you to close it and retry; it never terminates the process. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files, sources and history remain in your separate data folder. Patch sources update independently from patcher releases.
 
@@ -56,7 +58,7 @@ Selected appearance patches can expose color fields and a **Choose…** color pi
 
 The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
 
-See [PATCH-FORMAT.md](PATCH-FORMAT.md). Files use declarative operations and contain no scripts, commands, downloads, or executable plugins. Review the author and method preview: matching fingerprints do not establish author trust. App behavior and server entitlements remain subject to the target app's implementation.
+See [PATCH-FORMAT.md](PATCH-FORMAT.md). Most operations are declarative. Version 0.7.0 also accepts explicitly declared, hash-verified managed client modules. The library identifies these as executable code and the preview shows their SHA-256. Importing, previewing and applying only validate/embed the module; it runs later inside the target app. A hash establishes integrity, not trust or a sandbox: review the author's source before applying client code. App behavior and server entitlements remain subject to the target app's implementation. Shell commands and download operations are unsupported.
 
 Version 0.4.2 added conditional boolean setter overrides for patch packs that need to change selected rows while preserving the other rows' restrictions. Proton pack 1.2.0 requires this operation. Patch packs remain separate downloads.
 
@@ -75,4 +77,4 @@ Self-test fixtures compile only with `-Tests` and are excluded from the installe
 
 See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
 
-Version 0.6.1 adds bounded enum collection filters, enum lookup guards, WinUI control visibility hooks and conditional boolean exclusions. Proton pack 1.4.0 uses these to hide paid country tabs for free accounts, remove additional upgrade controls and promotional offers, and keep standard Recents usable. Custom colors and direct patch upgrades are retained. Update Patchwork before importing the new pack. Android-identity guest compatibility succeeded through credential and certificate issuance; a functioning Windows guest client is still under development. See the separate patch repository for the evidence and limits.
+Version 0.7.0 adds the managed client hooks needed by the separate Proton guest candidate. The installer still includes no patches or guest client code. Custom colors, promotional controls and direct patch upgrades are retained. The separate pack removes AMOLED and can remove its previous edits during an update. See the separate patch repository for guest validation and outstanding connection tests.

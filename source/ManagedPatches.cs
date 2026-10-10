@@ -8,17 +8,17 @@ using Mono.Cecil.Cil;
 
 namespace Patchwork
 {
-    // Patch files describe a small set of IL edits; they cannot supply code, assemblies or commands.
+    // Declarative edits and explicitly declared, hash-verified managed client modules.
     public static class ManagedPatches
     {
-        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter", "managedOverrideConditionalBooleanSetter", "managedEnumerableFactory", "managedThemeResources", "managedEnumFilter", "managedUiVisibility", "managedEnumGuardNull" };
+        static readonly string[] Kinds = { "managedReturn", "managedBooleanCall", "managedSuppressCall", "managedOverrideBoolean", "managedOverrideBooleanArgument", "managedConditionalCall", "managedConditionalBooleanCall", "managedConditionalProjection", "managedOverrideBooleanSetter", "managedOverrideConditionalBooleanSetter", "managedEnumerableFactory", "managedThemeResources", "managedEnumFilter", "managedUiVisibility", "managedEnumGuardNull", "managedEmbeddedHook" };
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
             if (!Kinds.Contains(op.Kind)) throw new InvalidDataException("Unknown operation: " + op.Kind);
             if (!op.File.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Managed operations require a .dll file.");
             op.Method = Json.String(raw, "method");
             if (String.IsNullOrWhiteSpace(op.Method) || op.Method.Length > 2048) throw new InvalidDataException("A complete managed method signature is required.");
-            if (ManagedSelectors.Parse(op, raw) || ManagedCollections.Parse(op, raw) || ManagedThemes.Parse(op, raw) || ManagedPresentation.Parse(op, raw)) return;
+            if (ManagedSelectors.Parse(op, raw) || ManagedCollections.Parse(op, raw) || ManagedThemes.Parse(op, raw) || ManagedPresentation.Parse(op, raw) || ManagedModules.Parse(op, raw)) return;
             if (op.Kind == "managedReturn")
             {
                 op.ReturnType = Json.String(raw, "returnType");
@@ -103,7 +103,7 @@ namespace Patchwork
                     if (!method.HasBody) throw new InvalidDataException("Cannot edit a method without IL: " + op.Method);
                     bool isOverride = op.Kind == "managedOverrideBoolean" || op.Kind == "managedOverrideBooleanArgument" || op.Kind == "managedOverrideBooleanSetter" || op.Kind == "managedOverrideConditionalBooleanSetter";
                     string key = isOverride ? op.Type + "::" + method.Name : method.FullName;
-                    if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || op.Kind == "managedEnumerableFactory" || op.Kind == "managedEnumFilter" || op.Kind == "managedEnumGuardNull" || isOverride)
+                    if (op.Kind == "managedReturn" || op.Kind == "managedConditionalProjection" || op.Kind == "managedEnumerableFactory" || op.Kind == "managedEnumFilter" || op.Kind == "managedEnumGuardNull" || op.Kind == "managedEmbeddedHook" || isOverride)
                     {
                         if (!returns.Add(key) || edits.Contains(key)) throw new InvalidOperationException("Conflicting managed method edits: " + key);
                     }
@@ -124,7 +124,7 @@ namespace Patchwork
                         edits.Add(key);
                     }
                     if (!touched.Contains(method) && !isOverride) { before.AppendLine(Describe(method)); touched.Add(method); }
-                    if (ManagedSelectors.Transform(module, method, op, touched, before) || ManagedCollections.Transform(module, method, op, touched) || ManagedThemes.Transform(module, method, op) || ManagedPresentation.Transform(module, method, op, touched)) { }
+                    if (ManagedSelectors.Transform(module, method, op, touched, before) || ManagedCollections.Transform(module, method, op, touched) || ManagedThemes.Transform(module, method, op) || ManagedPresentation.Transform(module, method, op, touched) || ManagedModules.Transform(module, method, op, touched)) { }
                     else if (op.Kind == "managedReturn") SetReturn(method, op);
                     else if (isOverride)
                     {

@@ -88,6 +88,7 @@ namespace Patchwork
         public string UiField;
         public bool UiFromParameter;
         public List<int> EnumValues = new List<int>();
+        public string ModuleData, ModuleSha256, EntryType, EntryMethod, HookMode;
         public List<Dictionary<string, string>> Mappings = new List<Dictionary<string, string>>();
         public List<string> SourceChain = new List<string>(), FilterChain = new List<string>(), FactoryChain = new List<string>(), ArgumentChain = new List<string>();
         public string ElementGetter, FactoryMethod;
@@ -378,6 +379,8 @@ namespace Patchwork
                         string beforeText, afterText;
                         change.AfterBytes = ManagedPatches.Transform(change.BeforeBytes, root, change.ManagedOperations, out beforeText, out afterText);
                         change.BeforeText = beforeText; change.AfterText = afterText;
+                        foreach (var client in change.ManagedOperations.Where(x => x.Kind == "managedEmbeddedHook").GroupBy(x => x.ModuleSha256).Select(x => x.First()))
+                            change.AfterText += "\nExecutable client module SHA-256: " + client.ModuleSha256 + "\nEntry type: " + client.EntryType + "\nRuns inside the target app when its hooked methods execute. Review its source before applying.\n";
                     }
                     else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes);
                     change.AfterHash = Hash(change.AfterBytes);

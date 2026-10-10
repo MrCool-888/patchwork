@@ -29,6 +29,12 @@ namespace Patchwork
             Assert(Updates.Parse(json, new Version(0, 4, 0, 0)) == null);
             Assert(Updates.Parse(json, new Version(0, 5, 0, 0)) == null);
             foreach (string flag in new[] { "draft", "prerelease" }) { var release = Release(); release[flag] = true; Reject(() => Updates.Parse(Json.Pretty(release), new Version(0, 3, 0, 0))); }
+            var preview = Release(); preview["prerelease"] = true;
+            Assert(Updates.ParseChannel(Json.Pretty(new object[] { preview }), new Version(0, 3, 0, 0), true).Prerelease);
+            Assert(Updates.ParseChannel(Json.Pretty(new object[] { preview }), new Version(0, 3, 0, 0), false) == null);
+            preview["draft"] = true;
+            Assert(Updates.ParseChannel(Json.Pretty(new object[] { preview }), new Version(0, 3, 0, 0), true) == null);
+            Assert(Updates.ParseChannel(Json.Pretty(new object[] { Release() }), new Version(0, 4, 0, 0), true) == null);
         }
         public static void UntrustedAssets()
         {
