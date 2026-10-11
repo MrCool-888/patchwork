@@ -1,5 +1,7 @@
 # Patchwork 0.8.2 prerelease
 
+Project license: **GPL-2.0-only**. See [LICENSE](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).
+
 This experimental prerelease adds a transactional ASAR companion-checksum operation for the Blitz startup fix. Blitz pack 1.1.0 repairs the checksum mismatch that caused the older pack to exit with E6 and turns automatic Blitz client/frontend updates off by default. Automatic install-folder detection remains available. Live corrected Blitz startup and real account sign-ins remain unverified. Patchwork 0.7.0 remains the stable release; the Proton guest pack's live tunnel validation is still pending.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
