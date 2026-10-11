@@ -49,7 +49,7 @@ namespace Patchwork
                         {
                             try
                             {
-                                controller.PrepareScreenshot(page);
+                                await controller.PrepareScreenshot(page);
                                 await Task.Delay(300);
                                 window.UpdateLayout();
                                 var surface = (FrameworkElement)window.Content;
@@ -99,7 +99,7 @@ namespace Patchwork
         public MainController(Window window, string dataRoot)
         {
             this.window = window; engine = new PatchEngine(dataRoot);
-            InitializeSources();
+            InitializeSources(); InitializeAsync();
             LoadSettings(); LoadColorOptions(); LoadRecipes();
             Control<TextBlock>("UpdateVersion").Text = "Installed v" + Updates.DisplayVersion + " · " + Updates.Repository;
             Control<CheckBox>("AutoUpdateCheck").IsChecked = LoadUpdatePreference();
@@ -121,11 +121,13 @@ namespace Patchwork
                 if (current == null) return;
                 var ready = current.Patches.Where(x => x.Ready).ToList();
                 bool all = ready.All(x => selected.Contains(x.Id));
-                selected.Clear(); if (!all) foreach (var patch in ready) selected.Add(patch.Id);
+                selectionRevision++; selected.Clear(); if (!all) foreach (var patch in ready) selected.Add(patch.Id);
                 preview = null; RenderPatches(); UpdateSession();
             };
             Control<TextBox>("SearchBox").TextChanged += delegate { if (current != null) RenderPatches(); };
-            Control<Button>("PreviewButton").Click += delegate { BuildPreview(); };
+            Control<Button>("PreviewButton").Click += async delegate { await BuildPreview(); };
+            Control<Button>("PreviewPreviousButton").Click += delegate { MovePreviewPage(-1); };
+            Control<Button>("PreviewNextButton").Click += delegate { MovePreviewPage(1); };
             Control<Button>("ApplyButton").Click += async delegate { await Apply(); };
             Control<ComboBox>("PreviewFilePicker").SelectionChanged += delegate { ShowPreviewFile(); };
             Control<Button>("OpenDataButton").Click += delegate { OpenFolder(engine.DataRoot); };
@@ -133,8 +135,7 @@ namespace Patchwork
             Control<ComboBox>("AppPicker").SelectionChanged += delegate { if (!changingPicker) SetBundle(Control<ComboBox>("AppPicker").SelectedIndex); };
             RefreshPicker(); SetBundle(bundles.Count == 0 ? -1 : 0);
             window.SourceInitialized += delegate { DarkTitleBar(window); };
-            int recoveries = engine.History().Count(x => x.State == "Prepared" || x.State == "Restoring" || x.State == "RecoveryRequired");
-            if (recoveries > 0) Notify(recoveries + " unfinished transaction(s). Open History & restore to recover.", true);
+
         }
         T Control<T>(string name) where T : FrameworkElement { return (T)window.FindName(name); }
         bool LoadUpdatePreference() { return LoadUpdatePreference("checkOnStartup", true); }
@@ -211,6 +212,7 @@ namespace Patchwork
         }
         void SetBundle(int index)
         {
+            selectionRevision++; selectionBundle = null;
             if (index < 0 || index >= bundles.Count)
             {
                 current = null; selected.Clear(); preview = null;
@@ -242,7 +244,7 @@ namespace Patchwork
             if (current.AppId == "blitz" && String.IsNullOrEmpty(targets[current.Id])) DetectBlitz();
             if (current.AppId == "lunar-client" && String.IsNullOrEmpty(targets[current.Id])) DetectLunar();
             if (current.AppId == "lunar-client") Control<TextBlock>("SessionNote").Text = "Close Lunar Client and Minecraft. This pack covers both folders under your Windows user folder. Unequip online cosmetics first. Restore before updating Lunar.";
-            try { var active = String.IsNullOrEmpty(targets[current.Id]) ? null : engine.ActiveSession(targets[current.Id]); if (active != null && active.BundleId == current.Id && active.PatchIds != null) foreach (string id in active.PatchIds.Where(x => current.Patches.Any(p => p.Id == x && p.Ready))) selected.Add(id); } catch { }
+            QueueAppliedSelection(current);
             string sourceOwner = patchSources == null ? null : patchSources.Owner(current.Id);
             if (sourceOwner != null) Control<TextBlock>("SessionDescription").Text += "\nSource: " + sourceOwner;
             RenderPatches(); UpdateSession(); ShowPage("library");
@@ -262,7 +264,7 @@ namespace Patchwork
                 var card = new Border { Background = Color(selected.Contains(patch.Id) ? "#201F32" : "#141C29"), BorderBrush = Color(selected.Contains(patch.Id) ? "#65538E" : "#283247"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(16, 14, 16, 14), Margin = new Thickness(0, 0, 0, 9) };
                 var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); grid.ColumnDefinitions.Add(new ColumnDefinition());
                 var check = new CheckBox { IsChecked = selected.Contains(patch.Id), IsEnabled = patch.Ready, Margin = new Thickness(0, 0, 14, 0), ToolTip = patch.Ready ? "Select " + patch.Name : "Windows backend not implemented yet" };
-                check.Click += delegate { if (check.IsChecked == true) SelectDependencies(patch); else { selected.Remove(patch.Id); foreach (var dependent in current.Patches.Where(x => x.Dependencies.Contains(patch.Id))) selected.Remove(dependent.Id); } preview = null; RenderPatches(); UpdateSession(); };
+                check.Click += delegate { selectionRevision++; if (check.IsChecked == true) SelectDependencies(patch); else { selected.Remove(patch.Id); foreach (var dependent in current.Patches.Where(x => x.Dependencies.Contains(patch.Id))) selected.Remove(dependent.Id); } preview = null; RenderPatches(); UpdateSession(); };
                 grid.Children.Add(check);
                 var content = new StackPanel(); Grid.SetColumn(content, 1);
                 var headline = new Grid(); headline.ColumnDefinitions.Add(new ColumnDefinition()); headline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -279,7 +281,7 @@ namespace Patchwork
         }
         void UpdateSession()
         {
-            if (current == null) { Control<Button>("PreviewButton").IsEnabled = false; return; }
+            if (current == null) { sessionRevision++; pendingInspection = null; Control<Button>("PreviewButton").IsEnabled = false; return; }
             string target = targets.ContainsKey(current.Id) ? targets[current.Id] : "";
             Control<TextBox>("TargetBox").Text = target.Length == 0 ? "No folder selected" : target;
             Control<TextBox>("TargetBox").ToolTip = target.Length == 0 ? "Choose the target folder" : target;
@@ -287,27 +289,10 @@ namespace Patchwork
             Control<Button>("PreviewButton").IsEnabled = !busy && selected.Count > 0 && target.Length > 0;
             var status = Control<TextBlock>("TargetStatus");
             status.Foreground = Color("#929DB1");
-            if (target.Length == 0) status.Text = "Select a folder to inspect the app.";
-            else if (!current.Patches.Any(x => x.Ready))
-            {
-                string detected = ProtonVersion(target);
-                status.Text = detected.Length == 0 ? "Proton executable not found. Import a compatible patch file." : "Detected v" + detected + ". Import a compatible Proton patch file.";
-                status.Foreground = Color("#E9C985");
-            }
-            else
-            {
-                try
-                {
-                    var applied = engine.VerifiedAppliedSession(current, target);
-                    if (applied != null) { status.Text = "Applied pack " + VersionLabel(applied.PackVersion) + ". Preview to update from verified originals; no manual restore needed."; status.Foreground = Color("#85DCC0"); return; }
-                    bool match = PatchEngine.Hash(PatchEngine.Read(PatchEngine.Resolve(target, current.VersionFile))).Equals(current.VersionSha256, StringComparison.OrdinalIgnoreCase);
-                    bool changed = current.Patches.SelectMany(x => x.Operations).GroupBy(x => x.File).Any(group => !PatchEngine.Hash(PatchEngine.Read(PatchEngine.Resolve(target, group.Key))).Equals(group.First().Sha256, StringComparison.OrdinalIgnoreCase));
-                    status.Text = !match ? "Version fingerprint mismatch. Choose a compatible folder." : changed ? "Files differ and no matching applied session was found. Choose a compatible folder or recover its original files." : "Target fingerprints match. Ready to preview.";
-                    status.Foreground = Color(match && !changed ? "#85DCC0" : "#E9C985");
-                }
-                catch (Exception error) { status.Text = error.Message; status.Foreground = Color("#E9C985"); }
-            }
+            if (target.Length == 0) { sessionRevision++; pendingInspection = null; status.Text = "Select a folder to inspect the app."; }
+            else QueueSessionInspection(current, target);
         }
+
         void ShowPage(string next)
         {
             if (busy) return;
@@ -355,12 +340,27 @@ namespace Patchwork
             AddBundle(bundle); RefreshPicker(); SetBundle(bundles.FindIndex(x => x.Id == bundle.Id));
             Notify("Imported patch pack " + VersionLabel(bundle.PackVersion) + " · " + bundle.Patches.Count(x => x.Ready) + " available patches. Preview before applying.");
         }
-        void BuildPreview()
+        async Task BuildPreview()
         {
-            if (current == null) return;
+            if (current == null || busy || closed) return;
+            var bundle = current; string target = targets[bundle.Id];
+            var ids = selected.ToArray();
             try
             {
-                preview = engine.Preview(current, targets[current.Id], selected, SelectedOptions());
+                var options = SelectedOptions();
+                preview = null; Control<Button>("ApplyButton").IsEnabled = false;
+                SetBusy(true); Notify("Checking files and building the patch preview…");
+                var result = await Task.Run(() => {
+#if TEST_BUILD
+                    if (PreviewGateForTest != null) PreviewGateForTest();
+#endif
+                    return engine.Preview(bundle, target, ids, options);
+                });
+                SetBusy(false);
+                if (closed) return;
+                if (current != bundle || targets[bundle.Id] != target || !selected.SetEquals(ids))
+                { Notify("The patch library or target changed. Preview again.", true); return; }
+                preview = result;
                 var picker = Control<ComboBox>("PreviewFilePicker"); picker.Items.Clear();
                 foreach (var file in preview.Files) picker.Items.Add(file.RelativePath);
                 int firstChanged = preview.Files.FindIndex(x => x.BeforeHash != x.AfterHash);
@@ -373,14 +373,9 @@ namespace Patchwork
                 if (updating) Control<TextBlock>("PreviewSummary").Text += "\nUpdate from verified original backups · replaces session " + preview.PreviousJournalId;
                 ShowPage("preview"); Notify(updating ? "Update preview verified. Review the current and updated content, then update patches." : "Preview verified. Review the original and patched content, then apply.");
             }
-            catch (Exception error) { preview = null; Notify("Preview blocked: " + error.Message, true); }
+            catch (Exception error) { preview = null; if (!closed) { SetBusy(false); Control<Button>("ApplyButton").IsEnabled = false; Notify("Preview blocked: " + error.Message, true); } }
         }
-        void ShowPreviewFile()
-        {
-            int index = Control<ComboBox>("PreviewFilePicker").SelectedIndex;
-            if (preview == null || index < 0 || index >= preview.Files.Count) return;
-            var file = preview.Files[index]; Control<TextBox>("BeforeText").Text = file.BeforeText; Control<TextBox>("AfterText").Text = file.AfterText;
-        }
+        void ShowPreviewFile() { ResetPreviewPage(); }
         async Task Apply()
         {
             if (preview == null || busy) return;
@@ -404,13 +399,16 @@ namespace Patchwork
             if (busy) return;
             if (!Dialog(journal.RestoreToPrevious ? "Recover previous patches?" : "Restore original files?", "Patchwork will verify the current files, then recover " + (journal.RestoreToPrevious ? "the patch version from before this interrupted update." : "the backed-up originals.") + "\n\n" + journal.TargetRoot, journal.RestoreToPrevious ? "Recover previous patches" : "Restore originals", true)) return;
             SetBusy(true); Notify("Verifying current files and restoring originals…");
-            try { await Task.Run(() => { Worker.CheckClientClosed(journal.TargetRoot); if (Worker.Protected(journal.TargetRoot)) Worker.RunElevated(engine, null, null, journal); else engine.Restore(journal); }); SetBusy(false); preview = null; UpdateSession(); RenderHistory(); Notify(journal.RestoreToPrevious ? "Previous patch version recovered and verified." : "Original files restored and fingerprints verified."); }
+            try { await Task.Run(() => {
+#if TEST_BUILD
+                if (RestoreGateForTest != null) RestoreGateForTest();
+#endif
+                Worker.CheckClientClosed(journal.TargetRoot); if (Worker.Protected(journal.TargetRoot)) Worker.RunElevated(engine, null, null, journal); else engine.Restore(journal); }); SetBusy(false); preview = null; UpdateSession(); RenderHistory(); Notify(journal.RestoreToPrevious ? "Previous patch version recovered and verified." : "Original files restored and fingerprints verified."); }
             catch (Exception error) { SetBusy(false); RenderHistory(); Notify(error.Message, true); }
         }
-        void RenderHistory()
+        void RenderHistory(List<Journal> journals)
         {
             var list = Control<StackPanel>("HistoryList"); list.Children.Clear();
-            var journals = engine.History();
             if (journals.Count == 0)
             {
                 var empty = new Border { Background = Color("#151D2B"), BorderBrush = Color("#2B354A"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(32), Margin = new Thickness(0, 18, 0, 0) };
@@ -443,16 +441,22 @@ namespace Patchwork
         void SetBusy(bool value)
         {
             busy = value;
+            if (value) { selectionRevision++; sessionRevision++; historyRevision++; pendingInspection = null; }
+            Control<ProgressBar>("OperationProgress").Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             foreach (string name in new[] { "LibraryPage", "PreviewPage", "HistoryPage", "SourcesPage", "SourcesNav", "SourcesButton", "PatchGuideButton", "ImportButton", "LibraryNav", "HistoryNav", "AboutNav" }) Control<FrameworkElement>(name).IsEnabled = !value;
             window.Closing -= PreventBusyClose;
             if (value) window.Closing += PreventBusyClose;
             if (!value && catalogRefreshPending) RefreshSourceCatalog();
+            if (!value && !closed) UpdateSession();
         }
-        void PreventBusyClose(object sender, System.ComponentModel.CancelEventArgs e) { e.Cancel = true; Notify("Wait for the current file transaction to finish before closing.", true); }
+        void PreventBusyClose(object sender, System.ComponentModel.CancelEventArgs e) { e.Cancel = true; Notify("Wait for the current operation to finish before closing.", true); }
         void Notify(string message, bool error = false) { Control<TextBlock>("StatusText").Text = message; Control<TextBlock>("StatusText").Foreground = Color(error ? "#F0BB9B" : "#92BDAF"); }
         static TextBlock Text(string text, double size, string color) { return new TextBlock { Text = text, FontSize = size, Foreground = Color(color), TextWrapping = TextWrapping.Wrap }; }
         bool Dialog(string title, string message, string action, bool cancel)
         {
+#if TEST_BUILD
+            if (ConfirmDialogForTest != null) return ConfirmDialogForTest(title);
+#endif
             var dialog = new Window { Title = title, Owner = window, Width = 510, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Color("#151D2B"), Foreground = Color("#E8EDF6"), FontFamily = new FontFamily("Segoe UI"), ShowInTaskbar = false };
             var body = new StackPanel { Margin = new Thickness(26) }; var heading = Text(title, 22, "#E8EDF6"); heading.FontWeight = FontWeights.SemiBold; body.Children.Add(heading);
             var description = Text(message, 13, "#A3AEC2"); description.Margin = new Thickness(0, 16, 0, 24); description.LineHeight = 21; body.Children.Add(description);
@@ -547,7 +551,7 @@ namespace Patchwork
         }
         void OpenFolder(string path) { try { Process.Start("explorer.exe", "\"" + Path.GetFullPath(path) + "\""); } catch (Exception error) { Notify(error.Message, true); } }
         void OpenGuide(string file) { try { Process.Start("notepad.exe", "\"" + Path.Combine(AppDomain.CurrentDomain.BaseDirectory, file) + "\""); } catch (Exception error) { Notify(error.Message, true); } }
-        public void PrepareScreenshot(string shot)
+        public async Task PrepareScreenshot(string shot)
         {
             if (shot == "proton-preview" || shot == "update-preview")
             {
@@ -555,7 +559,7 @@ namespace Patchwork
                 SetBundle(bundles.FindIndex(x => x.AppId == "proton-vpn"));
                 if (shot == "update-preview") foreach (var patch in current.Patches.Where(x => x.Ready)) SelectDependencies(patch);
                 else { selected.Add("disable-telemetry"); selected.Add("server-delay"); }
-                RenderPatches(); UpdateSession(); BuildPreview();
+                RenderPatches(); UpdateSession(); await BuildPreview();
             }
             else if (shot == "about") ShowPage("about");
             else if (shot == "free-selector") { Control<TextBox>("SearchBox").Text = "Free server"; RenderPatches(); ShowPage("library"); }
@@ -563,6 +567,7 @@ namespace Patchwork
             else if (shot == "history" || shot == "empty-history") ShowPage("history");
             else if (shot == "sources") ShowPage("sources");
             else if (shot == "themes") { foreach (var patch in current.Patches.Where(x => x.Ready && x.Category == "Appearance")) selected.Add(patch.Id); Control<TextBox>("SearchBox").Text = "Appearance"; RenderPatches(); UpdateSession(); ShowPage("library"); }
+            await selectionTask; await sessionTask; await historyTask;
         }
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
         static void DarkTitleBar(Window window) { try { int enabled = 1; DwmSetWindowAttribute(new WindowInteropHelper(window).Handle, 20, ref enabled, sizeof(int)); } catch { } }

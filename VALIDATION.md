@@ -1,5 +1,9 @@
 # Patchwork validation
 
+## Version 0.9.3 prerelease: responsive Lunar patching
+
+51 patcher scenarios, 40 real-controller assertions, 9 installer checks and 10 update-lock checks passed. Both full-sized Lunar versions produced identical output hashes to 0.9.2 and restored exact originals. The real WPF controller completed full-sized preview/apply/update/restore. A reproduced JavaScript preview UI pause fell from 20.7 seconds to 61 milliseconds with paging on the test computer. See [the detailed validation report](docs/RESPONSIVENESS-VALIDATION.md) for timings, stale-result/dispatcher checks, compatibility and limitations. Installed Lunar files were unchanged.
+
 ## Version 0.8.2 prerelease: Blitz companion checksum
 
 All **46 app self-tests passed, zero failures** on October 10, 2026. The new checksum scenario checks XXH32 reference vectors, a 10 MiB companion, strict paths/algorithm/fingerprints/footer bounds, duplicate composition, direct upgrades from an older ASAR-only journal, two-file failed-write rollback, selection updates and byte-exact restoration. Existing ASAR, closure, detection and managed-patch tests remain passing.

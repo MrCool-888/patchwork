@@ -39,13 +39,16 @@ namespace Patchwork
         }
         public Journal VerifiedAppliedSession(PatchBundle bundle, string root)
         {
-            EnsureNoRecoveryPending(root);
-            var journal = ActiveSession(root);
-            if (journal == null) return null;
-            if (journal.BundleId != bundle.Id) throw new InvalidOperationException("A different patch pack is applied to this folder.");
-            var originals = VerifyOriginals(journal);
-            if (Hash(ReadOriginal(Resolve(root, bundle.VersionFile), originals)) != bundle.VersionSha256) throw new InvalidOperationException("The saved originals do not match this app version.");
-            return journal;
+            lock (transactionLock)
+            {
+                EnsureNoRecoveryPending(root);
+                var journal = ActiveSession(root);
+                if (journal == null) return null;
+                if (journal.BundleId != bundle.Id) throw new InvalidOperationException("A different patch pack is applied to this folder.");
+                var originals = VerifyOriginals(journal);
+                if (Hash(ReadOriginal(Resolve(root, bundle.VersionFile), originals)) != bundle.VersionSha256) throw new InvalidOperationException("The saved originals do not match this app version.");
+                return journal;
+            }
         }
         public PatchPlan Preview(PatchBundle bundle, string root, IEnumerable<string> selection)
         {

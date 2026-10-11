@@ -274,7 +274,9 @@ namespace Patchwork
     {
         public readonly string DataRoot;
         readonly object transactionLock = new object();
+#if TEST_BUILD
         public Action<int> BeforeWriteForTest;
+#endif
         public PatchEngine(string dataRoot) { DataRoot = Path.GetFullPath(dataRoot); Directory.CreateDirectory(DataRoot); }
         public static string Hash(byte[] bytes)
         {
@@ -487,7 +489,9 @@ namespace Patchwork
                 {
                     for (int i = 0; i < plan.Files.Count; i++)
                     {
+#if TEST_BUILD
                         if (BeforeWriteForTest != null) BeforeWriteForTest(i);
+#endif
                         var change = plan.Files[i];
                         if (change.BeforeHash == change.AfterHash) continue;
                         string destination = Resolve(plan.TargetRoot, change.RelativePath);
@@ -553,28 +557,31 @@ namespace Patchwork
         }
         public List<Journal> History()
         {
-            string history = Path.Combine(DataRoot, "history");
-            var result = new List<Journal>();
-            if (!Directory.Exists(history)) return result;
-            foreach (string directory in Directory.GetDirectories(history))
+            lock (transactionLock)
             {
-                try
+                string history = Path.Combine(DataRoot, "history");
+                var result = new List<Journal>();
+                if (!Directory.Exists(history)) return result;
+                foreach (string directory in Directory.GetDirectories(history))
                 {
-                    string path = Resolve(directory, "journal.json");
-                    var journal = Json.Serializer.Deserialize<Journal>(Decode(Read(path)));
-                    if (journal == null || journal.Files == null || journal.PatchNames == null || journal.Id != Path.GetFileName(directory)) continue;
-                    journal.DirectoryPath = directory;
-                    result.Add(journal);
+                    try
+                    {
+                        string path = Resolve(directory, "journal.json");
+                        var journal = Json.Serializer.Deserialize<Journal>(Decode(Read(path)));
+                        if (journal == null || journal.Files == null || journal.PatchNames == null || journal.Id != Path.GetFileName(directory)) continue;
+                        journal.DirectoryPath = directory;
+                        result.Add(journal);
+                    }
+                    catch { /* Ignore unreadable entries; do not mutate an unknown journal. */ }
                 }
-                catch { /* Ignore unreadable entries; do not mutate an unknown journal. */ }
+                // Also derive predecessor state if a process stopped after committing the child journal.
+                foreach (var child in result.Where(x => !String.IsNullOrEmpty(x.PreviousJournalId) && !x.RestoreToPrevious && (x.State == "Applied" || x.State == "Restored" || x.State == "Restoring" || x.State == "RecoveryRequired")))
+                {
+                    var parent = result.SingleOrDefault(x => x.Id == child.PreviousJournalId);
+                    if (parent != null && parent.State == "Applied") { parent.State = "Superseded"; parent.SupersededBy = child.Id; }
+                }
+                return result.OrderByDescending(x => x.CreatedUtc, StringComparer.Ordinal).ToList();
             }
-            // Also derive predecessor state if a process stopped after committing the child journal.
-            foreach (var child in result.Where(x => !String.IsNullOrEmpty(x.PreviousJournalId) && !x.RestoreToPrevious && (x.State == "Applied" || x.State == "Restored" || x.State == "Restoring" || x.State == "RecoveryRequired")))
-            {
-                var parent = result.SingleOrDefault(x => x.Id == child.PreviousJournalId);
-                if (parent != null && parent.State == "Applied") { parent.State = "Superseded"; parent.SupersededBy = child.Id; }
-            }
-            return result.OrderByDescending(x => x.CreatedUtc, StringComparer.Ordinal).ToList();
         }
         void EnsureNoRecoveryPending(string root)
         {

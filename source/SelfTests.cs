@@ -202,6 +202,8 @@ namespace Patchwork
                 Assert(MainController.FindBlitzFolder(new[] { missing, executableOnly, archiveOnly, local, system }) == local, "Per-user installation was not selected first.");
                 Assert(MainController.FindBlitzFolder(new[] { missing, system }) == system, "System installation was not detected.");
             });
+            Test("Paged previews preserve complete content with bounded Unicode pages", () => PreviewPagingTests.Run());
+            Test("WPF controller keeps dispatcher responsive and rejects stale async results", () => ControllerTests.Run(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;

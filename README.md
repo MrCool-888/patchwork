@@ -1,6 +1,6 @@
-# Patchwork 0.9.2 prerelease
+# Patchwork 0.9.3 prerelease
 
-Adds exact-fingerprint JavaScript text replacements for client resources up to 16 MiB. This supports the optional **Remove in-game promotions** patch in [Lunar Client 0.1.5](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.5). Other text resources retain their 8 MiB limit. Preview, direct updates, rollback and byte-exact restoration cover the new file type. Existing Lunar process guards and binary/archive patch support are retained. This installer includes no patch packs or Lunar binaries.
+Keeps the interface responsive during preview generation, target verification, and history loading. Full before/after previews use paired 32,768-character pages with Previous/Next controls; Unicode surrogate pairs stay together. Preview, apply, and restore display a working indicator and phase text. Existing patch formats, fingerprints, backups, direct updates, and byte-exact restoration remain compatible. [Lunar Client 0.1.6](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.6) patch files need no changes. This installer includes no patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 

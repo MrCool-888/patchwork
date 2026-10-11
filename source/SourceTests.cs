@@ -113,6 +113,7 @@ namespace Patchwork
         }
         public static void SourcesInterface(string root)
         {
+            ControllerTests.EnsureDispatcher();
             string data = Path.Combine(root, "source-ui"); var store = new PatchSourceStore(data); store.Add("https://github.com/" + Repo, true); store.Apply(Incoming(Repo, Bundle("1.0.0")));
             var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data);
             engine.Apply(engine.Preview(Bundle("1.0.0"), target, new[] { "midnight-theme" }));
@@ -120,16 +121,21 @@ namespace Patchwork
             File.WriteAllText(Path.Combine(data, "settings.json"), Json.Pretty(new Dictionary<string, string> { { "sandbox-v1", target } }));
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Patchwork.MainWindow.xaml"))
             {
-                var window = (Window)XamlReader.Load(stream); var controller = new MainController(window, data);
+                var window = (Window)XamlReader.Load(stream); window.ShowInTaskbar = false; window.Left = -20000; window.Top = -20000;
+                var controller = new MainController(window, data);
                 try
                 {
+                    window.Show();
+                    var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    ControllerTests.PumpTask((System.Threading.Tasks.Task)typeof(MainController).GetField("selectionTask", flags).GetValue(controller));
+                    ControllerTests.PumpTask((System.Threading.Tasks.Task)typeof(MainController).GetField("sessionTask", flags).GetValue(controller));
                     ((Button)window.FindName("SourcesNav")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     Assert(((Grid)window.FindName("SourcesPage")).Visibility == Visibility.Visible && ((StackPanel)window.FindName("SourcesList")).Children.Count == 1);
                     Assert(((CheckBox)window.FindName("SourcePrereleases")).IsChecked == true && ((Button)window.FindName("CheckSourcesButton")).IsEnabled);
                     Assert(((TextBlock)window.FindName("SessionDescription")).Text.Contains(Repo));
                     Assert(((TextBlock)window.FindName("SelectedCount")).Text == "1 patch");
                     Assert(((TextBlock)window.FindName("TargetStatus")).Text.Contains("no manual restore needed"));
-                    ((Button)window.FindName("PreviewButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    ControllerTests.PumpTask((System.Threading.Tasks.Task)typeof(MainController).GetMethod("BuildPreview", flags).Invoke(controller, null));
                     Assert(((TextBlock)window.FindName("BeforeLabel")).Text == "CURRENTLY APPLIED");
                     Assert(((Button)window.FindName("ApplyButton")).Content.ToString() == "Update patches");
                     Assert(engine.History().Count == 1 && File.ReadAllText(Path.Combine(target, "settings.json")).Contains("midnight"));

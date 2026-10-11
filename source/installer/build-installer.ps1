@@ -1,7 +1,8 @@
 param(
     [string]$OutputFile,
     [string]$WorkDirectory,
-    [switch]$Console
+    [switch]$Console,
+    [switch]$Tests
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
@@ -36,6 +37,7 @@ $taskReferences = @('System.dll','System.Core.dll','System.Web.Extensions.dll','
 $taskReferences += @('PresentationFramework.dll','PresentationCore.dll','WindowsBase.dll') | ForEach-Object { '/reference:' + (Join-Path $taskWpf $_) }
 $taskTarget = if ($Console) { 'exe' } else { 'winexe' }
 $taskOptions = @('/nologo','/optimize+','/platform:x64',('/target:' + $taskTarget),('/out:' + $OutputFile),('/win32manifest:' + (Join-Path $taskSource 'app.manifest')),('/resource:' + $taskZip + ',Patchwork.Payload.zip'))
+if ($Tests) { $taskOptions += '/define:TEST_BUILD' }
 $taskIcon = Join-Path $taskSource 'Patchwork.ico'
 if (Test-Path -LiteralPath $taskIcon) { $taskOptions += '/win32icon:' + $taskIcon }
 & $taskCompiler @taskOptions @taskReferences (Join-Path $PSScriptRoot 'Installer.cs')
