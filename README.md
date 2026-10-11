@@ -1,7 +1,8 @@
-# Patchwork 0.9.3 prerelease
+# Patchwork 0.9.3
+
+Project license: **GPL-2.0-only**. See [LICENSE](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).
 
 Keeps the interface responsive during preview generation, target verification, and history loading. Full before/after previews use paired 32,768-character pages with Previous/Next controls; Unicode surrogate pairs stay together. Preview, apply, and restore display a working indicator and phase text. Existing patch formats, fingerprints, backups, direct updates, and byte-exact restoration remain compatible. [Lunar Client 0.1.6](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.6) patch files need no changes. This installer includes no patch packs or Lunar binaries.
-
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
 - Patcher source and releases: https://github.com/MrCool-888/patchwork
