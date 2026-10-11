@@ -196,7 +196,7 @@ namespace Patchwork
                 foreach (string id in patch.Dependencies.Concat(patch.Conflicts))
                     if (!ids.Contains(id) || id == patch.Id) throw new InvalidDataException("Invalid dependency or conflict: " + id);
             if (bundle.AppId == "proton-vpn" && bundle.Patches.SelectMany(x => x.Operations).Any(x => !x.Kind.StartsWith("managed", StringComparison.Ordinal))) throw new InvalidDataException("Proton bundles require managed operations.");
-            if (community && System.Version.Parse(bundle.MinimumPatcherVersion) < new System.Version(0, 10, 0)) throw new InvalidDataException("Community capabilities require minimumPatcherVersion: 0.10.0 or newer.");
+            if (community && System.Version.Parse(bundle.MinimumPatcherVersion) < new System.Version(1, 0, 0)) throw new InvalidDataException("Community capabilities require minimumPatcherVersion: 1.0.0 or newer.");
             return bundle;
         }
         static bool Scalar(object value) { return value == null || value is string || value is bool || value is int || value is long || value is decimal || value is double; }

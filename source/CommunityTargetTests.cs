@@ -14,13 +14,13 @@ namespace Patchwork
             var legacy = PatchBundle.Parse(TestFixtures.DemoRecipe());
             if (legacy.TargetLocations != null || legacy.Processes != null) throw new InvalidOperationException("Legacy recipes must retain null targeting and process policies.");
             var raw = Json.Parse(TestFixtures.DemoRecipe());
-            raw["minimumPatcherVersion"] = "0.10.0";
+            raw["minimumPatcherVersion"] = "1.0.0";
             string hintName = "PatchworkTest-" + Guid.NewGuid().ToString("N");
             raw["targetLocations"] = new object[] { new Dictionary<string, object> { { "base", "localAppData" }, { "path", hintName + "\\Target" } } };
             raw["processes"] = new object[] { new Dictionary<string, object> { { "name", "demo" }, { "scope", "target" } }, new Dictionary<string, object> { { "name", "launcher" }, { "scope", "all" } } };
             PatchBundle bundle = PatchBundle.Parse(Json.Pretty(raw));
             if (bundle.TargetLocations == null || bundle.TargetLocations.Count != 1 || bundle.Processes == null || bundle.Processes.Count != 2) throw new InvalidOperationException("Target/process hint parsing failed.");
-            var emptyPolicies = Json.Parse(TestFixtures.DemoRecipe()); emptyPolicies["minimumPatcherVersion"] = "0.10.0"; emptyPolicies["processes"] = new object[0];
+            var emptyPolicies = Json.Parse(TestFixtures.DemoRecipe()); emptyPolicies["minimumPatcherVersion"] = "1.0.0"; emptyPolicies["processes"] = new object[0];
             var emptyBundle = PatchBundle.Parse(Json.Pretty(emptyPolicies));
             if (emptyBundle.Processes == null || emptyBundle.Processes.Count != 0) throw new InvalidOperationException("An explicitly empty process policy must remain distinct from an omitted one.");
             ExpectInvalid(() => { var bad = Json.Parse(TestFixtures.DemoRecipe()); bad["targetLocations"] = new object[] { new Dictionary<string, object> { { "base", "userProfile" }, { "path", "..\\escape" } } }; PatchBundle.Parse(Json.Pretty(bad)); });

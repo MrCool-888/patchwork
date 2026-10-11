@@ -51,7 +51,7 @@ Use `textReplace` for an exact UTF-8 string replacement, `fileAdd` for a file th
 
 Binary, ZIP and ASAR payloads are data. Patchwork does not load or execute them. Code changed inside the target application may execute later with that application's privileges. Treat DLLs, Java class members, JavaScript and other program resources accordingly; inspect the preview and trust the publisher before applying.
 
-New operations described in this guide require `minimumPatcherVersion: "0.10.0"`. They need Patchwork 0.10.0 prerelease from the `community-patches` branch (or `v0.10.0` after publication); stable 0.9.3 rejects them. Keep this field in the root bundle whenever a pack uses any 0.10.0 capability. Older operations remain usable with their documented minimum version.
+New operations described in this guide require `minimumPatcherVersion: "1.0.0"`. They need Patchwork 1.0.0 prerelease from the `community-patches` branch (or `v1.0.0` after publication); stable 0.9.3 rejects them. Keep this field in the root bundle whenever a pack uses any 1.0.0 capability. Older operations remain usable with their documented minimum version.
 
 ## 3. Build a complete schema-1 bundle
 
@@ -69,7 +69,7 @@ Start from this outline and replace every example value with values measured fro
   "author": "Your name or project",
   "source": "Source repository and revision",
   "packVersion": "1.0.0",
-  "minimumPatcherVersion": "0.10.0",
+  "minimumPatcherVersion": "1.0.0",
   "patches": [
     {
       "id": "example-change",
@@ -111,7 +111,7 @@ Build Patchwork from the matching source revision, then run its read-only valida
 
 For each pack version, check five things on disposable copies with the same production binary: validate the unmodified original; apply the full intended selection; update to a changed selection and confirm deselected edits disappear; update to the next pack version from verified originals; and restore, then compare every target file byte-for-byte with the starting copy. Repeat with missing, already-present, wrong-hash, malformed and conflicting inputs where those cases apply. Keep the fixtures and commands alongside the recipe so another author can reproduce the result.
 
-Patchwork 0.10.0 can read legacy journals, but installations with new `fileAdd`-based transactions should be restored while using 0.10.0 before returning to stable 0.9.3. Keep the matching Patchwork version available for exact restoration.
+Patchwork 1.0.0 can read legacy journals, but installations with new `fileAdd`-based transactions should be restored while using 1.0.0 before returning to stable 0.9.3. Keep the matching Patchwork version available for exact restoration.
 
 ## 6. Publish a reviewable release
 

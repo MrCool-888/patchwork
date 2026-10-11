@@ -32,7 +32,7 @@ namespace Patchwork
         static Dictionary<string, object> Document(Dictionary<string, object> operations)
         {
             var patches = operations.Select(x => new Dictionary<string, object> { { "id", x.Key }, { "name", x.Key }, { "description", "Synthetic community fixture" }, { "operations", new[] { x.Value } } }).ToList();
-            return new Dictionary<string, object> { { "schemaVersion", 1 }, { "id", "unknown-community-pack" }, { "appId", "new-unregistered-app" }, { "appName", "Community fixture" }, { "appVersion", "1" }, { "versionFile", "app.version" }, { "versionSha256", PatchEngine.Hash(Bytes("version")) }, { "packVersion", "1.0.0" }, { "minimumPatcherVersion", "0.10.0" }, { "processes", new object[0] }, { "patches", patches } };
+            return new Dictionary<string, object> { { "schemaVersion", 1 }, { "id", "unknown-community-pack" }, { "appId", "new-unregistered-app" }, { "appName", "Community fixture" }, { "appVersion", "1" }, { "versionFile", "app.version" }, { "versionSha256", PatchEngine.Hash(Bytes("version")) }, { "packVersion", "1.0.0" }, { "minimumPatcherVersion", "1.0.0" }, { "processes", new object[0] }, { "patches", patches } };
         }
         static string Target(string root)
         {
@@ -84,7 +84,7 @@ namespace Patchwork
             Reject(() => engine.Preview(bundle, target, all), "already exists"); File.Delete(Path.Combine(target, "helpers/local.bin")); Directory.Delete(Path.Combine(target, "helpers"));
             Directory.CreateDirectory(Path.Combine(target, "helpers/local.bin")); Reject(() => engine.Preview(bundle, target, all), "regular file"); Directory.Delete(Path.Combine(target, "helpers/local.bin")); Directory.Delete(Path.Combine(target, "helpers"));
             string source = Json.Pretty(document);
-            Reject(() => PatchBundle.Parse(source.Replace("0.10.0", "0.9.3")), "minimumPatcherVersion");
+            Reject(() => PatchBundle.Parse(source.Replace("1.0.0", "0.9.3")), "minimumPatcherVersion");
             var bad = Payload("fileAdd", "new.bin", null, new byte[] { 1 }); bad["resultSha256"] = new string('0', 64);
             Reject(() => PatchBundle.Parse(Json.Pretty(Document(new Dictionary<string, object> { { "bad", bad } }))), "payload fingerprint");
             bad = Payload("fileAdd", "../new.bin", null, new byte[] { 1 }); Reject(() => PatchBundle.Parse(Json.Pretty(Document(new Dictionary<string, object> { { "bad", bad } }))), "Unsafe");

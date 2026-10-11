@@ -6,12 +6,12 @@ Keeps the interface responsive during preview generation, target verification, a
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
-Patchwork 0.10.0 is the prerelease with bounded edits for ordinary files, ZIP-family members and Electron ASAR resources, broader text replacement, target-location/process hints, and a command-line recipe validator for isolated fixtures. New operations require packs to declare `minimumPatcherVersion: "0.10.0"`; stable Patchwork 0.9.3 does not support them. Build the prerelease from the `community-patches` branch (or `v0.10.0` after that release tag is published). See [the patch format](PATCH-FORMAT.md), [the authoring guide](docs/AUTHORING.md), and the separate repository's [five synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples). These examples demonstrate recipe mechanics, not compatibility with real applications.
+Patchwork 1.0.0 is the prerelease with bounded edits for ordinary files, ZIP-family members and Electron ASAR resources, broader text replacement, target-location/process hints, and a command-line recipe validator for isolated fixtures. New operations require packs to declare `minimumPatcherVersion: "1.0.0"`; stable Patchwork 0.9.3 does not support them. Build the prerelease from the `community-patches` branch (or `v1.0.0` after that release tag is published). See [the patch format](PATCH-FORMAT.md), [the authoring guide](docs/AUTHORING.md), and the separate repository's [five synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples). These examples demonstrate recipe mechanics, not compatibility with real applications.
 
 | Use case | Patcher | Patch source setting |
 | --- | --- | --- |
 | Current stable packs, including Lunar Client 0.1.6 and the combined Blitz/Proton r3 release | Patchwork 0.9.3 stable | Pre-release patch assets can remain off. |
-| Experimental packs using 0.10.0 operations | Patchwork 0.10.0 prerelease | Enable prerelease app updates, or build from `community-patches`; set each pack's minimum patcher version to 0.10.0. |
+| Experimental packs using 1.0.0 operations | Patchwork 1.0.0 prerelease | Enable prerelease app updates, or build from `community-patches`; set each pack's minimum patcher version to 1.0.0. |
 
 - Patcher source and releases: https://github.com/MrCool-888/patchwork
 - Separate patch files: https://github.com/MrCool-888/patchwork-patches
@@ -90,7 +90,7 @@ No SDK or NuGet download is required; use the Windows .NET Framework 4.x compile
 
 Self-test fixtures compile only with `-Tests` and are excluded from the installer. Production builds contain no demo recipes or Proton patch definitions. The installer contains only the app, Mono.Cecil, and guides. `--data-dir PATH` isolates testing. `--import-patch FILE` imports the same external file as the GUI and then opens the app.
 
-These build commands use the source checked out in your working tree. To build the 0.10.0 prerelease that supports the new community operations, check out `community-patches` (or `v0.10.0` after that release tag is published) before building. A stable 0.9.3 build rejects bundles requiring 0.10.0.
+These build commands use the source checked out in your working tree. To build the 1.0.0 prerelease that supports the new community operations, check out `community-patches` (or `v1.0.0` after that release tag is published) before building. A stable 0.9.3 build rejects bundles requiring 1.0.0.
 
 See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
 

@@ -61,7 +61,7 @@ The selected operations must include text edits to that archive. Preview verifie
 
 ## Managed operations
 
-Managed operations in stable releases target IL-only `.dll` assemblies. Patchwork 0.10.0 also accepts IL-only `.exe` files. Both extensions are limited to 8 MiB. Every operation needs `file`, `sha256`, and `method` with the **complete Cecil signature**, such as `System.Boolean Example.Widget::get_IsRestricted()`. A missing or ambiguous signature refuses preview. The preview shows affected method IL, and the generated assembly is re-read before any write.
+Managed operations in stable releases target IL-only `.dll` assemblies. Patchwork 1.0.0 also accepts IL-only `.exe` files. Both extensions are limited to 8 MiB. Every operation needs `file`, `sha256`, and `method` with the **complete Cecil signature**, such as `System.Boolean Example.Widget::get_IsRestricted()`. A missing or ambiguous signature refuses preview. The preview shows affected method IL, and the generated assembly is re-read before any write.
 
 - `managedReturn`: replaces a method body. `returnType` is `boolean`, `int32`, `enum`, `string`, `void`, or `timeSpanZero`. `value` must have the matching JSON scalar type; `void` and `timeSpanZero` omit it. Enum targets must resolve to an enum type.
 - `managedBooleanCall`: replaces a specific parameterless boolean call's result, preserving evaluation of its receiver. Fields: `calledMethod` (complete signature), exact `count`, and boolean `value`.
@@ -159,9 +159,9 @@ The Lunar packs select `%USERPROFILE%` as their target root so their standard la
 
 ASAR empty-file integrity follows [Electron ASAR's implementation](https://github.com/electron/asar/blob/main/src/integrity.ts): one SHA-256 block of the empty buffer. Earlier Patchwork's zero-block empty metadata is also accepted when the whole-file empty hash matches, preserving restoration/upgrade history.
 
-## General file, ZIP and ASAR operations (0.10.0)
+## General file, ZIP and ASAR operations (1.0.0)
 
-The following operations require root `minimumPatcherVersion: "0.10.0"`. They are available in the Patchwork 0.10.0 prerelease from the `community-patches` branch (and in the `v0.10.0` release after publication); stable Patchwork 0.9.3 rejects these bundles. They use schema 1 and the same exact-original fingerprinting, preview, backup, update, rollback and byte-exact restore lifecycle as existing operations. Patchwork treats payloads as data and never loads or executes them. Changed application code can run later inside the target application.
+The following operations require root `minimumPatcherVersion: "1.0.0"`. They are available in the Patchwork 1.0.0 prerelease from the `community-patches` branch (and in the `v1.0.0` release after publication); stable Patchwork 0.9.3 rejects these bundles. They use schema 1 and the same exact-original fingerprinting, preview, backup, update, rollback and byte-exact restore lifecycle as existing operations. Patchwork treats payloads as data and never loads or executes them. Changed application code can run later inside the target application.
 
 Optional root `targetLocations` supplies up to 32 target-location hints. Each item has a `base` of `localAppData`, `appData`, `programFiles`, `programFilesX86` or `userProfile`, and a safe relative `path`; use an empty path for the base directory itself. Optional root `processes` supplies up to 32 process hints, each with an extensionless executable `name` and a `scope` of `target` or `all`. These are detection and close-before-edit hints, not authorization to write outside the selected target. If either field is omitted, legacy discovery or process behavior applies.
 
@@ -175,9 +175,9 @@ Optional root `targetLocations` supplies up to 32 target-location hints. Each it
 
 `asarEntryAdd` and `asarEntryReplace` require the whole archive's original `sha256` and add or replace packed members with `entry`, `dataBase64` and `resultSha256`; replace also requires original member `entrySha256`. Their archive is limited to 64 MiB, member payloads are limited to 8 MiB, and inline data to 256 KiB. Add requires the member to be absent. Existing ASAR metadata, integrity, packed-only and companion-checksum handling applies. The external `.asar.unpacked` tree is not modified.
 
-New file payload operations, archive payload operations and new root hints are supported by Patchwork 0.10.0 and later. Keep the full UTF-8 JSON bundle under 1 MiB. For practical authoring, use a distinct pack and stable IDs, declare exact original fingerprints, specify the complete final result hash, and test deselection and restore against disposable originals. See [docs/AUTHORING.md](docs/AUTHORING.md) and the separate patch repository's [synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples).
+New file payload operations, archive payload operations and new root hints are supported by Patchwork 1.0.0 and later. Keep the full UTF-8 JSON bundle under 1 MiB. For practical authoring, use a distinct pack and stable IDs, declare exact original fingerprints, specify the complete final result hash, and test deselection and restore against disposable originals. See [docs/AUTHORING.md](docs/AUTHORING.md) and the separate patch repository's [synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples).
 
-## Validate a recipe from the command line (0.10.0)
+## Validate a recipe from the command line (1.0.0)
 
 `Patchwork.exe --validate-patch FILE` validates a bundle without importing or applying it. Optional `--target DIR --select ID,ID` previews that explicit patch selection against a disposable target fixture; `--target` requires `--select`. The validator does not contact a network service or change the user's Patchwork library. It returns exit code 0 on success and 1 on validation failure. It uses the same production parser and patch engine as the app; a successful run is evidence for the supplied fixture only, not for a live product build. Example:
 
