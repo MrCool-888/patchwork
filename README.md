@@ -1,6 +1,6 @@
-# Patchwork 0.9.1 prerelease
+# Patchwork 0.9.2 prerelease
 
-Fixes Lunar transactions incorrectly blocked by an unrelated Blitz process. The separate Lunar Client 0.1.1 packs support the current inspected game build; Minecraft 1.21.11 launch, locker rendering and local equip/unequip were verified on Windows with launcher 3.7.24-ow. Multiplayer privacy remains unverified. Preview, apply, updates, rollback and exact restore cover the launcher executable, ASAR archive and game JAR in one transaction. Standard Lunar installations are detected under the Windows user folder. This installer includes no Lunar patch packs or Lunar binaries.
+Adds exact-fingerprint JavaScript text replacements for client resources up to 16 MiB. This supports the optional **Remove in-game promotions** patch in [Lunar Client 0.1.5](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.5). Other text resources retain their 8 MiB limit. Preview, direct updates, rollback and byte-exact restoration cover the new file type. Existing Lunar process guards and binary/archive patch support are retained. This installer includes no patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
 
@@ -49,6 +49,8 @@ Version 0.4.1 fixed the Windows “process is being used” update error. Curren
 Backups, history, imported files, sources, update downloads, and preferences live in `%LOCALAPPDATA%\Patchwork\Data`. Updating/uninstalling Patchwork preserves this data and does not undo target patches. Restore targets before uninstalling if you want their original state.
 
 Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Ordinary text/managed targets retain the 8 MB limit; ASAR archives may be at most 64 MB, with edited text members limited to 8 MB. Network shares, symlinks/junctions and mixed native/managed assemblies are unsupported. New target-app releases need matching new patch files. Apply, update and restore require a recognized Blitz or Proton client in the selected folder to be closed.
+
+Plain `.js` text replacements support files up to 16 MiB. JavaScript is executable client code; inspect the preview and trust the patch source. Patchwork treats it as text data and does not execute it.
 
 ## Color options (0.6.0)
 

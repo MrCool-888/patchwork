@@ -215,7 +215,7 @@ namespace Patchwork
         }
         static bool AllowedExtension(string path)
         {
-            return new[] { ".json", ".txt", ".css", ".xml", ".ini", ".yaml", ".yml", ".toml", ".conf", ".config" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+            return new[] { ".json", ".txt", ".css", ".xml", ".ini", ".yaml", ".yml", ".toml", ".conf", ".config", ".js" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
         }
     }
 
@@ -284,7 +284,7 @@ namespace Patchwork
         {
             return Read(file, TargetLimit(file));
         }
-        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : file.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.MaximumSize : file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? BinaryPatches.MaximumSize : 8 * 1024 * 1024; }
+        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : file.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.MaximumSize : file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? BinaryPatches.MaximumSize : file.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ? 16 * 1024 * 1024 : 8 * 1024 * 1024; }
         static byte[] ReadBackup(string file, string relative) { return Read(file, TargetLimit(relative)); }
         static byte[] Read(string file, int maximum)
         {
@@ -306,12 +306,12 @@ namespace Patchwork
             if (text.IndexOf('\0') >= 0) throw new InvalidDataException("Only UTF-8 text files are supported.");
             return text;
         }
-        static byte[] Encode(string text, byte[] original)
+        static byte[] Encode(string text, byte[] original, string relative)
         {
             byte[] bytes = new UTF8Encoding(false, true).GetBytes(text);
-            if (bytes.Length > 8 * 1024 * 1024) throw new InvalidDataException("The patched file would exceed 8 MB.");
             if (original.Length >= 3 && original[0] == 0xef && original[1] == 0xbb && original[2] == 0xbf)
-                return new byte[] { 0xef, 0xbb, 0xbf }.Concat(bytes).ToArray();
+                bytes = new byte[] { 0xef, 0xbb, 0xbf }.Concat(bytes).ToArray();
+            if (bytes.Length > TargetLimit(relative)) throw new InvalidDataException("The patched file would exceed " + (TargetLimit(relative) / 1024 / 1024) + " MB.");
             return bytes;
         }
         public static string Resolve(string root, string relative)
@@ -443,7 +443,7 @@ namespace Patchwork
                         change.AfterBytes = change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText) : BinaryPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText);
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
-                    else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes);
+                    else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes, change.RelativePath);
                     change.AfterHash = Hash(change.AfterBytes);
                     if (change.AfterHash != change.BeforeHash) plan.Files.Add(change);
                 }

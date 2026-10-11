@@ -14,7 +14,7 @@ Optional bundle `packVersion` and patch `version` use three nonnegative numbers,
 
 `jsonSet` supports an existing scalar property in a `.json` object. Fields: `kind`, `file`, `sha256`, `path` (1–16 property names), `expected`, `value`. It rejects missing properties and unexpected values. Arrays are not traversed. JSON is formatted on write; restore preserves original bytes.
 
-`textReplace` uses `kind`, `file`, `sha256`, `find`, `replacement`, and `count` (1–10000 exact ordinal matches). Supported extensions: `.json`, `.txt`, `.css`, `.xml`, `.ini`, `.yaml`, `.yml`, `.toml`, `.conf`, `.config`. UTF-8 BOMs are preserved.
+`textReplace` uses `kind`, `file`, `sha256`, `find`, `replacement`, and `count` (1–10000 exact ordinal matches). Supported extensions: `.json`, `.txt`, `.css`, `.xml`, `.ini`, `.yaml`, `.yml`, `.toml`, `.conf`, `.config` and `.js`. Ordinary text targets are limited to 8 MiB; `.js` targets are limited to 16 MiB both before and after replacement. UTF-8 BOMs are preserved. JavaScript is executable client code: review the exact before/after preview and use only trusted patch sources. Patchwork validates and edits bytes; it does not run JavaScript inside the patcher or treat patch data as commands.
 
 ## Electron ASAR text operations (0.8.0)
 
