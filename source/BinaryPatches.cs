@@ -15,7 +15,7 @@ namespace Patchwork
     public static class BinaryPatches
     {
         public const int MaximumSize = 256 * 1024 * 1024;
-        public static bool IsOperation(string kind) { return kind == "binarySplice" || kind == "jarEntrySplice" || kind == "jarEntryAdd"; }
+        public static bool IsOperation(string kind) { return kind == "binarySplice" || kind == "fileAdd" || kind == "fileReplace" || JarPatches.IsOperation(kind); }
         public static int Integer(Dictionary<string, object> raw, string name, int maximum)
         {
             object value;
@@ -32,21 +32,18 @@ namespace Patchwork
         }
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
-            bool jar = op.Kind != "binarySplice";
-            if (!op.File.EndsWith(jar ? ".jar" : ".exe", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Binary operation has an unsupported target extension.");
-            if (jar)
-            {
-                op.Entry = Json.String(raw, "entry"); JarPatches.ValidateEntry(op.Entry);
-                if (!op.Entry.EndsWith(".class", StringComparison.Ordinal)) throw new InvalidDataException("JAR edits require a .class member.");
-                op.EntrySha256 = Json.String(raw, "entrySha256"); PatchBundle.ValidateHash(op.EntrySha256);
-            }
-            if (op.Kind == "jarEntryAdd")
+            if (JarPatches.IsOperation(op.Kind)) { JarPatches.Parse(op, raw); return; }
+            if (op.Kind == "fileAdd" || op.Kind == "fileReplace")
             {
                 op.BinaryData = Json.String(raw, "dataBase64");
-                byte[] data = Data(op.BinaryData);
-                if (!PatchEngine.Hash(data).Equals(op.EntrySha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Added class payload fingerprint mismatch.");
-                JarPatches.ValidateClass(data); return;
+                op.ResultSha256 = Json.String(raw, "resultSha256"); PatchBundle.ValidateHash(op.ResultSha256);
+                if (!PatchEngine.Hash(Data(op.BinaryData)).Equals(op.ResultSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("File payload fingerprint mismatch.");
+                return;
             }
+            ParseEdits(op, raw);
+        }
+        public static void ParseEdits(PatchOperation op, Dictionary<string, object> raw)
+        {
             foreach (object item in Json.Array(raw, "edits"))
             {
                 var edit = Json.Object(item);
@@ -79,9 +76,9 @@ namespace Patchwork
         {
             var unique = operations.GroupBy(x => Json.Serializer.Serialize(x)).Select(x => x.First()).ToList();
             if (unique.Count != 1) throw new InvalidDataException("Conflicting binary file edits.");
-            byte[] result = Splice(original, unique[0].BinaryEdits, MaximumSize);
+            byte[] result = unique[0].Kind == "fileAdd" || unique[0].Kind == "fileReplace" ? Data(unique[0].BinaryData) : Splice(original, unique[0].BinaryEdits, MaximumSize);
             if (!PatchEngine.Hash(result).Equals(unique[0].ResultSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Patched binary fingerprint mismatch.");
-            beforeText = Describe(original); afterText = Describe(result) + "\nExecutable modified; publisher signature may be invalid.\n";
+            beforeText = original == null ? "File absent" : Describe(original); afterText = Describe(result) + "\nOpaque bytes may contain client code; publisher signatures can be invalidated.\n";
             foreach (var edit in unique[0].BinaryEdits) afterText += "Offset " + edit.Offset + ": replace " + edit.Length + " byte(s) with " + Data(edit.Data).Length + " byte(s).\n";
             return result;
         }

@@ -21,6 +21,27 @@ namespace Patchwork
         }
         public static void CheckClientClosed(string target)
         {
+            CheckClientClosed(target, null);
+        }
+        public static void CheckClientClosed(string target, List<ProcessRule> rules)
+        {
+            if (rules != null)
+            {
+                foreach (var rule in rules)
+                    foreach (var process in Process.GetProcessesByName(rule.Name))
+                    using (process)
+                    {
+                        if (rule.Scope == "all") throw new InvalidOperationException("Close " + rule.Name + " before applying, updating or restoring patches.");
+                        string executable;
+                        try
+                        {
+                            executable = process.MainModule.FileName;
+                        }
+                        catch { throw new InvalidOperationException(rule.Name + " is running and could not be inspected. Close it before patching."); }
+                        if (Targeting.MatchesProcess(rule, executable, target)) throw new InvalidOperationException("Close " + rule.Name + " from its tray menu before applying, updating or restoring patches.");
+                    }
+                return;
+            }
             bool lunarGame = File.Exists(Path.Combine(target, ".lunarclient", "offline", "multiver", "lunar.jar"));
             var names = lunarGame ? new[] { "Lunar Client", "java", "javaw" } : new[] { "ProtonVPN.Client", "ProtonVPN", "Blitz", "Lunar Client", "java", "javaw" };
             foreach (string name in names)
@@ -61,7 +82,8 @@ namespace Patchwork
             {
                 var engine = new PatchEngine(dataRoot); var job = Json.Parse(PatchEngine.Decode(PatchEngine.Read(absolute)));
                 string target = Json.String(job, "targetRoot"); string mode = Json.String(job, "mode"); string journalId;
-                CheckClientClosed(target);
+                var rules = mode == "restore" ? engine.History().Single(x => x.Id == Json.String(job, "journalId")).Processes : PatchBundle.Parse(Json.String(job, "bundle")).Processes;
+                CheckClientClosed(target, rules);
                 if (mode == "apply")
                 {
                     var bundle = PatchBundle.Parse(Json.String(job, "bundle"));
@@ -69,7 +91,7 @@ namespace Patchwork
                     var plan = engine.Preview(bundle, target, Json.Array(job, "selected").Cast<string>(), ThemeOptions.Read(options));
                     if ((plan.PreviousJournalId ?? "") != Json.String(job, "previousJournalId", "")) throw new InvalidOperationException("The applied session changed after preview. Preview again.");
                     var before = Json.Object(job["before"]); var after = Json.Object(job["after"]);
-                    if (before.Count != plan.Files.Count || after.Count != plan.Files.Count || plan.Files.Any(x => !before.ContainsKey(x.RelativePath) || !after.ContainsKey(x.RelativePath) || (string)before[x.RelativePath] != x.BeforeHash || (string)after[x.RelativePath] != x.AfterHash)) throw new InvalidOperationException("Files or patches changed after preview. Preview again.");
+                    if (before.Count != plan.Files.Count || after.Count != plan.Files.Count || plan.Files.Any(x => !before.ContainsKey(x.RelativePath) || !after.ContainsKey(x.RelativePath) || !Object.Equals(before[x.RelativePath], x.BeforeHash) || !Object.Equals(after[x.RelativePath], x.AfterHash))) throw new InvalidOperationException("Files or patches changed after preview. Preview again.");
                     journalId = engine.Apply(plan).Id;
                 }
                 else if (mode == "restore")

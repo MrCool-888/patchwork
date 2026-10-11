@@ -1,8 +1,17 @@
-# Patchwork 0.9.3 prerelease
+# Patchwork
+
+Project license: **GPL-2.0-only**. See [LICENSE](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).
 
 Keeps the interface responsive during preview generation, target verification, and history loading. Full before/after previews use paired 32,768-character pages with Previous/Next controls; Unicode surrogate pairs stay together. Preview, apply, and restore display a working indicator and phase text. Existing patch formats, fingerprints, backups, direct updates, and byte-exact restoration remain compatible. [Lunar Client 0.1.6](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.6) patch files need no changes. This installer includes no patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
+
+Patchwork 0.10.0 is the prerelease with bounded edits for ordinary files, ZIP-family members and Electron ASAR resources, broader text replacement, target-location/process hints, and a command-line recipe validator for isolated fixtures. New operations require packs to declare `minimumPatcherVersion: "0.10.0"`; stable Patchwork 0.9.3 does not support them. Build the prerelease from the `community-patches` branch (or `v0.10.0` after that release tag is published). See [the patch format](PATCH-FORMAT.md), [the authoring guide](docs/AUTHORING.md), and the separate repository's [five synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples). These examples demonstrate recipe mechanics, not compatibility with real applications.
+
+| Use case | Patcher | Patch source setting |
+| --- | --- | --- |
+| Current stable packs, including Lunar Client 0.1.6 and the combined Blitz/Proton r3 release | Patchwork 0.9.3 stable | Pre-release patch assets can remain off. |
+| Experimental packs using 0.10.0 operations | Patchwork 0.10.0 prerelease | Enable prerelease app updates, or build from `community-patches`; set each pack's minimum patcher version to 0.10.0. |
 
 - Patcher source and releases: https://github.com/MrCool-888/patchwork
 - Separate patch files: https://github.com/MrCool-888/patchwork-patches
@@ -12,7 +21,7 @@ An installable Windows patch manager with separate patch-file imports, automatic
 Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the current Windows user to `%LOCALAPPDATA%\Programs\Patchwork`, adds Start menu shortcuts and an Installed Apps entry, and offers a desktop shortcut. Setup itself needs no administrator rights. Windows 10/11 x64 and .NET Framework 4.8 are required. This is an unsigned development build.
 
 1. Open Patchwork. A new installation starts with an empty library.
-2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. Leave **Include pre-release patch packs** enabled to import the combined Blitz and Proton release. Blitz pack 1.1.0 requires Patchwork 0.8.2. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
+2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. The current Lunar 0.1.6 and combined Blitz/Proton r3 releases are stable assets, so the prerelease patch option is not required. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
 3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Browse** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
 4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
@@ -80,6 +89,8 @@ No SDK or NuGet download is required; use the Windows .NET Framework 4.x compile
 ```
 
 Self-test fixtures compile only with `-Tests` and are excluded from the installer. Production builds contain no demo recipes or Proton patch definitions. The installer contains only the app, Mono.Cecil, and guides. `--data-dir PATH` isolates testing. `--import-patch FILE` imports the same external file as the GUI and then opens the app.
+
+These build commands use the source checked out in your working tree. To build the 0.10.0 prerelease that supports the new community operations, check out `community-patches` (or `v0.10.0` after that release tag is published) before building. A stable 0.9.3 build rejects bundles requiring 0.10.0.
 
 See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
 

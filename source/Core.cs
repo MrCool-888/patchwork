@@ -112,10 +112,12 @@ namespace Patchwork
     {
         public string Id, AppId, AppName, AppVersion, Author, Source, VersionFile, VersionSha256, PackVersion, MinimumPatcherVersion;
         [ScriptIgnore] public string Content;
+        public List<TargetLocation> TargetLocations;
+        public List<ProcessRule> Processes;
         public List<PatchDefinition> Patches = new List<PatchDefinition>();
         public static PatchBundle Parse(string content)
         {
-            if (content.Length > 1024 * 1024) throw new InvalidDataException("Patch bundles must be smaller than 1 MB.");
+            if (Encoding.UTF8.GetByteCount(content) > 1024 * 1024) throw new InvalidDataException("Patch bundles must be smaller than 1 MB.");
             var root = Json.Parse(content);
             object schema;
             if (!root.TryGetValue("schemaVersion", out schema) || Convert.ToInt32(schema) != 1) throw new InvalidDataException("Unsupported bundle schema. This app supports schema 1.");
@@ -127,8 +129,10 @@ namespace Patchwork
                 PackVersion = ReadVersion(root, "packVersion", "Unversioned"), MinimumPatcherVersion = ReadVersion(root, "minimumPatcherVersion", "0.3.0")
             };
             if (System.Version.Parse(bundle.MinimumPatcherVersion) > System.Reflection.Assembly.GetExecutingAssembly().GetName().Version) throw new InvalidDataException("This patch pack requires Patchwork " + bundle.MinimumPatcherVersion + " or newer. Update the patcher first.");
+            Targeting.Parse(bundle, root);
             ValidateId(bundle.Id); ValidateId(bundle.AppId); ValidateRelative(bundle.VersionFile); ValidateHash(bundle.VersionSha256);
             if (bundle.AppId == "proton-vpn" && bundle.VersionFile != "ProtonVPN.Client.exe") throw new InvalidDataException("Proton bundles must fingerprint ProtonVPN.Client.exe.");
+            bool community = root.ContainsKey("targetLocations") || root.ContainsKey("processes");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (object entry in Json.Array(root, "patches"))
             {
@@ -140,20 +144,27 @@ namespace Patchwork
                 patch.Dependencies = Strings(Json.Array(raw, "dependencies", true));
                 patch.Conflicts = Strings(Json.Array(raw, "conflicts", true));
                 patch.Options = ThemeOptions.ParseOptions(raw);
+                int operationIndex = 0;
                 foreach (object operation in Json.Array(raw, "operations"))
                 {
+                    operationIndex++;
+                    try
+                    {
                     var opRaw = Json.Object(operation);
-                    var op = new PatchOperation { Kind = Json.String(opRaw, "kind"), File = Json.String(opRaw, "file"), Sha256 = Json.String(opRaw, "sha256") };
-                    ValidateRelative(op.File); ValidateHash(op.Sha256);
+                    var op = new PatchOperation { Kind = Json.String(opRaw, "kind"), File = Json.String(opRaw, "file") };
+                    ValidateRelative(op.File);
+                    if (op.Kind == "fileAdd") { if (opRaw.ContainsKey("sha256")) throw new InvalidDataException("fileAdd requires an absent original; omit sha256."); }
+                    else { op.Sha256 = Json.String(opRaw, "sha256"); ValidateHash(op.Sha256); }
                     bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
-                    bool asar = op.Kind == "asarTextReplace";
+                    bool asar = AsarPatches.IsOperation(op.Kind);
                     bool checksum = op.Kind == "asarChecksum";
                     bool binary = BinaryPatches.IsOperation(op.Kind);
                     if (managed) ManagedPatches.Parse(op, opRaw);
                     else if (asar) AsarPatches.Parse(op, opRaw);
                     else if (checksum) AsarChecksum.Parse(op, opRaw);
                     else if (binary) BinaryPatches.Parse(op, opRaw);
-                    else if (!AllowedExtension(op.File)) throw new InvalidDataException("Only UTF-8 configuration and text resources are supported for text operations: " + op.File);
+                    community |= op.Kind == "fileAdd" || op.Kind == "fileReplace" || op.Kind.StartsWith("zip", StringComparison.Ordinal) || op.Kind == "asarEntryAdd" || op.Kind == "asarEntryReplace" ||
+                        op.Kind == "binarySplice" && !op.File.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || managed && op.File.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || op.Kind == "textReplace" && !AllowedExtension(op.File);
                     if (managed || asar || checksum || binary) { }
                     else if (op.Kind == "jsonSet")
                     {
@@ -167,12 +178,14 @@ namespace Patchwork
                     {
                         op.Find = Json.String(opRaw, "find"); op.Replacement = Json.String(opRaw, "replacement");
                         object count;
-                        if (!opRaw.TryGetValue("count", out count)) throw new InvalidDataException("textReplace requires an exact count.");
-                        op.Count = Convert.ToInt32(count);
+                        if (!opRaw.TryGetValue("count", out count) || !(count is int)) throw new InvalidDataException("textReplace requires an exact integer count.");
+                        op.Count = (int)count;
                         if (op.Find.Length == 0 || op.Count < 1 || op.Count > 10000) throw new InvalidDataException("Invalid text replacement or match count.");
                     }
                     else throw new InvalidDataException("Unknown operation: " + op.Kind);
                     patch.Operations.Add(op);
+                    }
+                    catch (Exception error) { throw new InvalidDataException("Patch " + patch.Id + ", operation " + operationIndex + ": " + error.Message, error); }
                 }
                 if (patch.Ready && patch.Operations.Count == 0 || patch.Operations.Count > 100 || !patch.Ready && patch.Operations.Count != 0) throw new InvalidDataException("Available patches need 1 to 100 operations; planned patches must have none.");
                 ThemeOptions.Validate(patch);
@@ -183,6 +196,7 @@ namespace Patchwork
                 foreach (string id in patch.Dependencies.Concat(patch.Conflicts))
                     if (!ids.Contains(id) || id == patch.Id) throw new InvalidDataException("Invalid dependency or conflict: " + id);
             if (bundle.AppId == "proton-vpn" && bundle.Patches.SelectMany(x => x.Operations).Any(x => !x.Kind.StartsWith("managed", StringComparison.Ordinal))) throw new InvalidDataException("Proton bundles require managed operations.");
+            if (community && System.Version.Parse(bundle.MinimumPatcherVersion) < new System.Version(0, 10, 0)) throw new InvalidDataException("Community capabilities require minimumPatcherVersion: 0.10.0 or newer.");
             return bundle;
         }
         static bool Scalar(object value) { return value == null || value is string || value is bool || value is int || value is long || value is decimal || value is double; }
@@ -204,14 +218,24 @@ namespace Patchwork
         }
         public static void ValidateHash(string hash)
         {
-            if (!System.Text.RegularExpressions.Regex.IsMatch(hash, "^[a-fA-F0-9]{64}$")) throw new InvalidDataException("A full SHA-256 fingerprint is required.");
+            if (hash == null || !System.Text.RegularExpressions.Regex.IsMatch(hash, "^[a-fA-F0-9]{64}$")) throw new InvalidDataException("A full SHA-256 fingerprint is required.");
         }
         public static void ValidateRelative(string path)
         {
+            ValidateRelative(path, true);
+        }
+        public static void ValidateArchiveRelative(string path)
+        {
+            ValidateRelative(path, false);
+        }
+        static void ValidateRelative(string path, bool fileSystem)
+        {
+            if (path != null && path.IndexOfAny(System.IO.Path.GetInvalidPathChars()) >= 0) throw new InvalidDataException("Unsafe file path: " + path);
             if (String.IsNullOrWhiteSpace(path) || System.IO.Path.IsPathRooted(path) || path.IndexOf(':') >= 0 || path.IndexOf('\0') >= 0)
                 throw new InvalidDataException("Use a relative file path: " + path);
             foreach (string part in path.Replace('/', '\\').Split('\\'))
-                if (part.Length == 0 || part == "." || part == ".." || part.EndsWith(".") || part.EndsWith(" ")) throw new InvalidDataException("Unsafe file path: " + path);
+                if (part.Length == 0 || part == "." || part == ".." || part.EndsWith(".") || part.EndsWith(" ") || fileSystem && (part.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 ||
+                    System.Text.RegularExpressions.Regex.IsMatch(part, "^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\.|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))) throw new InvalidDataException("Unsafe file path: " + path);
         }
         static bool AllowedExtension(string path)
         {
@@ -224,6 +248,9 @@ namespace Patchwork
         public string RelativePath, BeforeHash, AfterHash, BeforeText, AfterText;
         public byte[] BeforeBytes, AfterBytes, OriginalBeforeBytes;
         public string OriginalBeforeHash;
+        public string TransformKind;
+        public int SizeLimit;
+        public bool BeforeExists = true, AfterExists = true, OriginalBeforeExists = true;
         public List<string> Details = new List<string>();
         [ScriptIgnore] public List<PatchOperation> ManagedOperations = new List<PatchOperation>();
         [ScriptIgnore] public List<PatchOperation> AsarOperations = new List<PatchOperation>();
@@ -234,6 +261,8 @@ namespace Patchwork
     {
         public Dictionary<string, string> Options = new Dictionary<string, string>();
         public string TargetRoot, AppName, AppVersion, BundleId, VersionFile, VersionSha256, PackVersion, BundleSha256, VersionCurrentSha256, PreviousJournalId;
+        public int VersionSizeLimit;
+        public List<ProcessRule> Processes;
         public DateTime CreatedUtc;
         public List<string> PatchIds = new List<string>();
         public List<string> PatchNames = new List<string>();
@@ -241,6 +270,12 @@ namespace Patchwork
     }
     public class JournalFile
     {
+        public JournalFile() { BeforeExists = AfterExists = PreviousExists = true; }
+        public bool BeforeExists { get; set; }
+        public bool AfterExists { get; set; }
+        public bool PreviousExists { get; set; }
+        public string TransformKind { get; set; }
+        public int SizeLimit { get; set; }
         public string RelativePath { get; set; }
         public string BeforeHash { get; set; }
         public string AfterHash { get; set; }
@@ -267,6 +302,8 @@ namespace Patchwork
         public string SupersededBy { get; set; }
         public bool RestoreToPrevious { get; set; }
         public List<JournalFile> Files { get; set; }
+        public List<ProcessRule> Processes { get; set; }
+        public List<string> CreatedDirectories { get; set; }
         [ScriptIgnore] public string DirectoryPath { get; set; }
     }
 
@@ -280,6 +317,7 @@ namespace Patchwork
         public PatchEngine(string dataRoot) { DataRoot = Path.GetFullPath(dataRoot); Directory.CreateDirectory(DataRoot); }
         public static string Hash(byte[] bytes)
         {
+            if (bytes == null) return null;
             using (var algorithm = SHA256.Create()) return BitConverter.ToString(algorithm.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
         }
         public static byte[] Read(string file)
@@ -288,7 +326,7 @@ namespace Patchwork
         }
         static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : file.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.MaximumSize : file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? BinaryPatches.MaximumSize : file.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ? 16 * 1024 * 1024 : 8 * 1024 * 1024; }
         static byte[] ReadBackup(string file, string relative) { return Read(file, TargetLimit(relative)); }
-        static byte[] Read(string file, int maximum)
+        public static byte[] Read(string file, int maximum)
         {
             var info = new FileInfo(file);
             if (!info.Exists) throw new FileNotFoundException("Required file is missing: " + file);
@@ -350,8 +388,8 @@ namespace Patchwork
                     if (patch.Conflicts.Any(ids.Contains)) throw new InvalidOperationException("Conflicting patch selection: " + patch.Name);
                 }
                 string versionPath = Resolve(root, bundle.VersionFile);
-                if (!Hash(ReadOriginal(versionPath, originals)).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Target fingerprint does not match " + bundle.AppName + " " + bundle.AppVersion + ".");
-                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, PackVersion = bundle.PackVersion, BundleSha256 = Hash(Encoding.UTF8.GetBytes(bundle.Content)), VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, VersionCurrentSha256 = Hash(Read(versionPath)), CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name + (x.Version == "Unversioned" ? " (unversioned)" : " (v" + x.Version + ")")).ToList() };
+                if (!String.Equals(Hash(ReadOriginal(versionPath, originals, VersionLimit(bundle))), bundle.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Target fingerprint does not match " + bundle.AppName + " " + bundle.AppVersion + ".");
+                var plan = new PatchPlan { TargetRoot = root, AppName = bundle.AppName, AppVersion = bundle.AppVersion, BundleId = bundle.Id, PackVersion = bundle.PackVersion, BundleSha256 = Hash(Encoding.UTF8.GetBytes(bundle.Content)), VersionFile = bundle.VersionFile, VersionSha256 = bundle.VersionSha256, VersionCurrentSha256 = Hash(Read(versionPath, VersionLimit(bundle))), VersionSizeLimit = VersionLimit(bundle), Processes = bundle.Processes, CreatedUtc = DateTime.UtcNow, PatchIds = selected.Select(x => x.Id).ToList(), PatchNames = selected.Select(x => x.Name + (x.Version == "Unversioned" ? " (unversioned)" : " (v" + x.Version + ")")).ToList() };
                 var files = new Dictionary<string, FileChange>(StringComparer.OrdinalIgnoreCase);
                 var jsonTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var patch in selected)
@@ -361,19 +399,21 @@ namespace Patchwork
                         FileChange change;
                         if (!files.TryGetValue(full, out change))
                         {
-                            byte[] before = ReadOriginal(full, originals);
-                            bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
-                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" || op.Kind == "asarChecksum" || BinaryPatches.IsOperation(op.Kind) ? "" : Decode(before) };
+                            string kind = FileFormats.Kind(op); int limit = FileFormats.Limit(kind, op.File);
+                            byte[] before = op.Kind == "fileAdd" ? ReadOptionalOriginal(full, originals, limit) : ReadOriginal(full, originals, limit);
+                            change = new FileChange { RelativePath = op.File, TransformKind = kind, SizeLimit = limit, BeforeBytes = before, BeforeExists = before != null, BeforeHash = Hash(before), BeforeText = kind == "text" ? Decode(before) : "" };
                             change.AfterText = change.BeforeText;
                             files.Add(full, change);
                         }
-                        if (!change.BeforeHash.Equals(op.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsupported or already modified file: " + op.File + ". Restore the original or use a matching recipe.");
+                        if (change.TransformKind != FileFormats.Kind(op)) throw new InvalidDataException("Incompatible transformations for " + op.File);
+                        if (op.Kind == "fileAdd" && change.BeforeExists) throw new InvalidOperationException("Added file already exists: " + op.File);
+                        if (!String.Equals(change.BeforeHash, op.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsupported or already modified file: " + op.File + ". Restore the original or use a matching recipe.");
                         if (op.Kind.StartsWith("managed", StringComparison.Ordinal))
                         {
                             change.ManagedOperations.Add(op);
                             change.Details.Add(patch.Name + ": " + op.Kind + " · " + op.Method);
                         }
-                        else if (op.Kind == "asarTextReplace")
+                        else if (AsarPatches.IsOperation(op.Kind))
                         {
                             change.AsarOperations.Add(op);
                             change.Details.Add(patch.Name + ": executable ASAR text edit · " + op.Entry);
@@ -442,10 +482,11 @@ namespace Patchwork
                     else if (change.BinaryOperations.Count > 0)
                     {
                         string beforeText, afterText;
-                        change.AfterBytes = change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText) : BinaryPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText);
+                        change.AfterBytes = change.TransformKind == "zip" ? JarPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText) : BinaryPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText);
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
                     else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes, change.RelativePath);
+                    if (change.AfterBytes.Length > change.SizeLimit) throw new InvalidDataException("Transformed file exceeds its size limit: " + change.RelativePath);
                     change.AfterHash = Hash(change.AfterBytes);
                     if (change.AfterHash != change.BeforeHash) plan.Files.Add(change);
                 }
@@ -455,7 +496,7 @@ namespace Patchwork
         }
         public Journal Apply(PatchPlan plan)
         {
-            Worker.CheckClientClosed(plan.TargetRoot);
+            Worker.CheckClientClosed(plan.TargetRoot, plan.Processes);
             lock (transactionLock)
             using (AcquireTransaction())
             {
@@ -463,12 +504,12 @@ namespace Patchwork
                 var previous = ActiveSession(plan.TargetRoot);
                 if ((previous == null ? null : previous.Id) != plan.PreviousJournalId) throw new InvalidOperationException("The applied session changed after preview. Preview again.");
                 if (previous != null) VerifyOriginals(previous);
-                if (!Hash(Read(Resolve(plan.TargetRoot, plan.VersionFile))).Equals(plan.VersionCurrentSha256 ?? plan.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The target version changed after preview. Preview again.");
+                if (!Hash(Read(Resolve(plan.TargetRoot, plan.VersionFile), plan.VersionSizeLimit == 0 ? TargetLimit(plan.VersionFile) : plan.VersionSizeLimit)).Equals(plan.VersionCurrentSha256 ?? plan.VersionSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The target version changed after preview. Preview again.");
                 foreach (var change in plan.Files)
-                    if (Hash(Read(Resolve(plan.TargetRoot, change.RelativePath))) != change.BeforeHash) throw new InvalidOperationException("A file changed after preview: " + change.RelativePath + ". Preview again.");
+                    if (Hash(ReadState(Resolve(plan.TargetRoot, change.RelativePath), change.SizeLimit)) != change.BeforeHash) throw new InvalidOperationException("A file changed after preview: " + change.RelativePath + ". Preview again.");
                 var journal = new Journal {
                     Id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8), AppName = plan.AppName, AppVersion = plan.AppVersion,
-                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), PatchIds = plan.PatchIds.ToList(), Options = new Dictionary<string, string>(plan.Options), PreviousJournalId = plan.PreviousJournalId, RestoreToPrevious = previous != null, Files = new List<JournalFile>()
+                    BundleId = plan.BundleId, PackVersion = plan.PackVersion, BundleSha256 = plan.BundleSha256, TargetRoot = plan.TargetRoot, CreatedUtc = DateTime.UtcNow.ToString("o"), State = "Prepared", Error = "", PatchNames = plan.PatchNames.ToList(), PatchIds = plan.PatchIds.ToList(), Options = new Dictionary<string, string>(plan.Options), PreviousJournalId = plan.PreviousJournalId, RestoreToPrevious = previous != null, Processes = plan.Processes, CreatedDirectories = previous == null || previous.CreatedDirectories == null ? new List<string>() : previous.CreatedDirectories.ToList(), Files = new List<JournalFile>()
                 };
                 journal.DirectoryPath = Path.Combine(DataRoot, "history", journal.Id);
                 Directory.CreateDirectory(journal.DirectoryPath);
@@ -476,12 +517,13 @@ namespace Patchwork
                 {
                     var change = plan.Files[i];
                     string backup = i.ToString("D3") + ".original";
-                    byte[] original = change.OriginalBeforeBytes ?? change.BeforeBytes;
-                    string originalHash = change.OriginalBeforeHash ?? change.BeforeHash;
-                    if (Hash(original) != originalHash || Hash(change.BeforeBytes) != change.BeforeHash || Hash(change.AfterBytes) != change.AfterHash) throw new InvalidDataException("Preview bytes failed verification.");
-                    DurableWrite(Path.Combine(journal.DirectoryPath, backup), original);
-                    var entry = new JournalFile { RelativePath = change.RelativePath, BeforeHash = originalHash, AfterHash = change.AfterHash, BackupFile = backup };
-                    if (previous != null) { entry.PreviousHash = change.BeforeHash; entry.PreviousBackupFile = i.ToString("D3") + ".previous"; DurableWrite(Path.Combine(journal.DirectoryPath, entry.PreviousBackupFile), change.BeforeBytes); }
+                    byte[] original = previous == null ? change.BeforeBytes : change.OriginalBeforeBytes;
+                    string originalHash = previous == null ? change.BeforeHash : change.OriginalBeforeHash;
+                    bool originalExists = previous == null ? change.BeforeExists : change.OriginalBeforeExists;
+                    VerifyBytes(original, originalHash, originalExists); VerifyBytes(change.BeforeBytes, change.BeforeHash, change.BeforeExists); VerifyBytes(change.AfterBytes, change.AfterHash, change.AfterExists);
+                    if (originalExists) DurableWrite(Path.Combine(journal.DirectoryPath, backup), original);
+                    var entry = new JournalFile { RelativePath = change.RelativePath, TransformKind = change.TransformKind, SizeLimit = change.SizeLimit, BeforeExists = originalExists, AfterExists = change.AfterExists, BeforeHash = originalHash, AfterHash = change.AfterHash, BackupFile = originalExists ? backup : null };
+                    if (previous != null) { entry.PreviousExists = change.BeforeExists; entry.PreviousHash = change.BeforeHash; entry.PreviousBackupFile = change.BeforeExists ? i.ToString("D3") + ".previous" : null; if (change.BeforeExists) DurableWrite(Path.Combine(journal.DirectoryPath, entry.PreviousBackupFile), change.BeforeBytes); }
                     journal.Files.Add(entry);
                 }
                 Save(journal);
@@ -495,8 +537,9 @@ namespace Patchwork
                         var change = plan.Files[i];
                         if (change.BeforeHash == change.AfterHash) continue;
                         string destination = Resolve(plan.TargetRoot, change.RelativePath);
-                        AtomicReplace(destination, change.AfterBytes, change.BeforeHash);
-                        if (Hash(Read(destination)) != change.AfterHash) throw new IOException("Verification failed after writing " + change.RelativePath);
+                        EnsureParentDirectories(plan.TargetRoot, destination, journal);
+                        WriteState(destination, change.AfterBytes, change.BeforeHash, change.SizeLimit);
+                        if (Hash(ReadState(destination, change.SizeLimit)) != change.AfterHash) throw new IOException("Verification failed after writing " + change.RelativePath);
                     }
                     journal.State = "Applied"; journal.RestoreToPrevious = false; Save(journal);
                     if (previous != null) { previous.State = "Superseded"; previous.SupersededBy = journal.Id; Save(previous); }
@@ -514,11 +557,11 @@ namespace Patchwork
         }
         public void Restore(Journal journal)
         {
-            Worker.CheckClientClosed(journal.TargetRoot);
             lock (transactionLock)
             using (AcquireTransaction())
             {
                 journal = History().Single(x => x.Id == journal.Id);
+                Worker.CheckClientClosed(journal.TargetRoot, journal.Processes);
                 if (journal.State == "Superseded") throw new InvalidOperationException("A newer patch session replaced this one. Restore the current session instead.");
                 if (History().Any(x => x.Id != journal.Id && SameRoot(x.TargetRoot, journal.TargetRoot) && (x.State == "Prepared" || x.State == "Restoring" || x.State == "RecoveryRequired"))) throw new InvalidOperationException("Recover the unfinished transaction for this folder first.");
                 if (journal.State != "Applied" && journal.State != "Prepared" && journal.State != "RecoveryRequired" && journal.State != "Restoring") throw new InvalidOperationException("This backup has already been restored or rolled back.");
@@ -533,10 +576,9 @@ namespace Patchwork
             {
                 string destination = Resolve(journal.TargetRoot, entry.RelativePath);
                 if (!paths.Add(destination)) throw new InvalidDataException("Duplicate backup file entry.");
-                PatchBundle.ValidateHash(entry.BeforeHash); PatchBundle.ValidateHash(entry.AfterHash);
-                string backup = Resolve(journal.DirectoryPath, entry.BackupFile);
-                if (Hash(ReadBackup(backup, entry.RelativePath)) != entry.BeforeHash) throw new InvalidOperationException("Backup fingerprint mismatch: " + entry.RelativePath);
-                string current = Hash(Read(destination));
+                VerifyJournalState(entry.BeforeExists, entry.BeforeHash); VerifyJournalState(entry.AfterExists, entry.AfterHash);
+                ReadJournalBackup(journal, entry, false);
+                string current = Hash(ReadState(destination, FileFormats.TrackedLimit(entry)));
                 if (current != entry.AfterHash && (!recovery || current != entry.BeforeHash)) throw new InvalidOperationException("Restore blocked: " + entry.RelativePath + " was changed outside Patchwork. No files were restored.");
             }
             journal.State = "Restoring"; Save(journal);
@@ -545,12 +587,14 @@ namespace Patchwork
                 foreach (var entry in journal.Files)
                 {
                     string destination = Resolve(journal.TargetRoot, entry.RelativePath);
-                    string current = Hash(Read(destination));
+                    int limit = FileFormats.TrackedLimit(entry);
+                    string current = Hash(ReadState(destination, limit));
                     if (current == entry.BeforeHash) continue;
                     if (current != entry.AfterHash) throw new InvalidOperationException("File changed during restore: " + entry.RelativePath);
-                    AtomicReplace(destination, ReadBackup(Resolve(journal.DirectoryPath, entry.BackupFile), entry.RelativePath), entry.AfterHash);
-                    if (Hash(Read(destination)) != entry.BeforeHash) throw new IOException("Restore verification failed: " + entry.RelativePath);
+                    WriteState(destination, ReadJournalBackup(journal, entry, false), entry.AfterHash, limit);
+                    if (Hash(ReadState(destination, limit)) != entry.BeforeHash) throw new IOException("Restore verification failed: " + entry.RelativePath);
                 }
+                CleanupDirectories(journal);
                 journal.State = "Restored"; Save(journal);
             }
             catch (Exception error) { journal.State = "RecoveryRequired"; journal.Error = error.Message; Save(journal); throw; }

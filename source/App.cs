@@ -21,6 +21,7 @@ namespace Patchwork
         [STAThread]
         public static int Main(string[] args)
         {
+            if (args.Contains("--validate-patch")) return AuthorValidation.Run(args);
             string dataRoot = Argument(args, "--data-dir") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Patchwork", "Data");
             try
             {
@@ -248,6 +249,7 @@ namespace Patchwork
             string sourceOwner = patchSources == null ? null : patchSources.Owner(current.Id);
             if (sourceOwner != null) Control<TextBlock>("SessionDescription").Text += "\nSource: " + sourceOwner;
             RenderPatches(); UpdateSession(); ShowPage("library");
+            if (String.IsNullOrEmpty(targets[current.Id]) && current.TargetLocations != null) QueueHintDetection(current);
         }
         void RenderPatches()
         {
@@ -272,8 +274,8 @@ namespace Patchwork
                 var category = Text(patch.Ready ? patch.Category.ToUpperInvariant() : "PLANNED", 9, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
-                if (patch.Operations.Any(x => x.Kind == "managedEmbeddedHook" || x.Kind == "asarTextReplace" || BinaryPatches.IsOperation(x.Kind))) {
-                    var code = Text("Executable client code · runs inside the target app", 11, "#E5BB77"); code.Margin = new Thickness(0, 7, 0, 0); content.Children.Add(code);
+                if (patch.Operations.Any(FileFormats.ContainsClientCode)) {
+                    var code = Text("Opaque payload · may contain target code. Patchwork never executes it.", 11, "#E5BB77"); code.Margin = new Thickness(0, 7, 0, 0); content.Children.Add(code);
                 }
                 if (patch.Ready && selected.Contains(patch.Id)) AddColorOptions(content, patch);
                 grid.Children.Add(content); card.Child = grid; container.Children.Add(card);
@@ -385,7 +387,7 @@ namespace Patchwork
             {
                 var bundle = current;
                 var journal = await Task.Run(() => {
-                    Worker.CheckClientClosed(plan.TargetRoot);
+                    Worker.CheckClientClosed(plan.TargetRoot, plan.Processes);
                     if (Worker.Protected(plan.TargetRoot)) { string id = Worker.RunElevated(engine, bundle, plan, null); return engine.History().Single(x => x.Id == id); }
                     return engine.Apply(plan);
                 });
@@ -403,7 +405,7 @@ namespace Patchwork
 #if TEST_BUILD
                 if (RestoreGateForTest != null) RestoreGateForTest();
 #endif
-                Worker.CheckClientClosed(journal.TargetRoot); if (Worker.Protected(journal.TargetRoot)) Worker.RunElevated(engine, null, null, journal); else engine.Restore(journal); }); SetBusy(false); preview = null; UpdateSession(); RenderHistory(); Notify(journal.RestoreToPrevious ? "Previous patch version recovered and verified." : "Original files restored and fingerprints verified."); }
+                Worker.CheckClientClosed(journal.TargetRoot, journal.Processes); if (Worker.Protected(journal.TargetRoot)) Worker.RunElevated(engine, null, null, journal); else engine.Restore(journal); }); SetBusy(false); preview = null; UpdateSession(); RenderHistory(); Notify(journal.RestoreToPrevious ? "Previous patch version recovered and verified." : "Original files restored and fingerprints verified."); }
             catch (Exception error) { SetBusy(false); RenderHistory(); Notify(error.Message, true); }
         }
         void RenderHistory(List<Journal> journals)

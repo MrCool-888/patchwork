@@ -15,7 +15,7 @@ namespace Patchwork
         public static void Parse(PatchOperation op, Dictionary<string, object> raw)
         {
             if (!Kinds.Contains(op.Kind)) throw new InvalidDataException("Unknown operation: " + op.Kind);
-            if (!op.File.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Managed operations require a .dll file.");
+            if (!op.File.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && !op.File.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Managed operations require an IL-only .dll or .exe file.");
             op.Method = Json.String(raw, "method");
             if (String.IsNullOrWhiteSpace(op.Method) || op.Method.Length > 2048) throw new InvalidDataException("A complete managed method signature is required.");
             if (ManagedSelectors.Parse(op, raw) || ManagedCollections.Parse(op, raw) || ManagedThemes.Parse(op, raw) || ManagedPresentation.Parse(op, raw) || ManagedModules.Parse(op, raw)) return;

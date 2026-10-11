@@ -66,7 +66,7 @@ namespace Patchwork
                 ExpectFailure(() => PatchEngine.Resolve(root, "C:\\escape.json"), "relative");
                 ExpectFailure(() => PatchEngine.Resolve(root, "settings.json:stream"), "relative");
                 string recipe = TestFixtures.DemoRecipe();
-                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"app.exe\"")), "Only UTF-8");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"app.exe\"")), "jsonSet requires a .json");
                 ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"patchwork-sandbox\"", "\"proton-vpn\"")), "fingerprint ProtonVPN.Client.exe");
                 ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"jsonSet\"", "\"runCommand\"")), "Unknown operation");
             });
@@ -139,8 +139,8 @@ namespace Patchwork
                 ExpectFailure(() => PatchEngine.Decode(new byte[] { 0xff }), "bytes");
                 ExpectFailure(() => PatchEngine.Decode(new byte[] { 0x61, 0x00 }), "UTF-8");
                 string recipe = TestFixtures.DemoRecipe();
-                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.bat\"")), "Only UTF-8");
-                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.ps1\"")), "Only UTF-8");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.bat\"")), "jsonSet requires a .json");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.ps1\"")), "jsonSet requires a .json");
                 byte[] source = Encoding.UTF8.GetBytes(new string('a', 15 * 1024 * 1024) + "x");
                 File.WriteAllBytes(Path.Combine(target, "oversized-result.js"), source);
                 var bundle = PatchBundle.Parse(recipe); bundle.Patches[0].Operations.Clear();
@@ -187,6 +187,9 @@ namespace Patchwork
             Test("Presentation operations refuse wrong UI receivers, parameters and enum values", () => PresentationTests.Validation(root));
             Test("Embedded client fallback preserves original behavior and after hooks", () => ModuleTests.Runtime(root));
             Test("Embedded client modules refuse invalid hashes, entries and signatures", () => ModuleTests.Validation(root));
+            Test("Community ZIP and ASAR resources add, replace, compare and reject conflicts", () => CommunityArchiveTests.Run(root));
+            Test("Community target hints, process rules and author validator", () => CommunityTargetTests.Run(root));
+            Test("Community file additions, native DLLs and durable recovery", () => CommunityFileTests.Run(root));
             Test("Binary and JAR edits validate, upgrade, roll back and restore", () => BinaryTests.Run(root));
             Test("ASAR previews compose, update, recover and restore archives larger than 8 MB", () => AsarTests.Transactions(root));
             Test("ASAR parsing, entry integrity, counts, conflicts and paths are bounded", () => AsarTests.Boundaries(root));

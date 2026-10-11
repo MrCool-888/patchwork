@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Controls;
@@ -20,6 +21,7 @@ namespace Patchwork
             internal bool Match;
         }
         int sessionRevision, historyRevision;
+        int hintDetectionRevision;
         bool inspectingSession;
         Inspection pendingInspection;
         PatchBundle selectionBundle;
@@ -114,11 +116,29 @@ namespace Patchwork
                 }
                 var applied = engine.VerifiedAppliedSession(bundle, target);
                 if (applied != null) return new TargetResult { Match = true, Text = "Applied pack " + VersionLabel(applied.PackVersion) + ". Preview to update from verified originals; no manual restore needed." };
-                bool match = PatchEngine.Hash(PatchEngine.Read(PatchEngine.Resolve(target, bundle.VersionFile))).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase);
-                bool changed = bundle.Patches.SelectMany(x => x.Operations).GroupBy(x => x.File).Any(group => !PatchEngine.Hash(PatchEngine.Read(PatchEngine.Resolve(target, group.Key))).Equals(group.First().Sha256, StringComparison.OrdinalIgnoreCase));
+                bool match = PatchEngine.Hash(PatchEngine.Read(PatchEngine.Resolve(target, bundle.VersionFile), PatchEngine.VersionLimit(bundle))).Equals(bundle.VersionSha256, StringComparison.OrdinalIgnoreCase);
+                bool changed = bundle.Patches.SelectMany(x => x.Operations).GroupBy(x => x.File).Any(group => {
+                    string path = PatchEngine.Resolve(target, group.Key);
+                    bool added = group.Any(x => x.Kind == "fileAdd");
+                    return added ? File.Exists(path) || Directory.Exists(path) : !File.Exists(path) || !PatchEngine.Hash(PatchEngine.Read(path, FileFormats.Limit(FileFormats.Kind(group.First()), group.Key))).Equals(group.First().Sha256, StringComparison.OrdinalIgnoreCase);
+                });
                 return new TargetResult { Match = match && !changed, Text = !match ? "Version fingerprint mismatch. Choose a compatible folder." : changed ? "Files differ and no matching applied session was found. Choose a compatible folder or recover its original files." : "Target fingerprints match. Ready to preview." };
             }
             catch (Exception error) { return new TargetResult { Text = error.Message }; }
+        }
+        void QueueHintDetection(PatchBundle bundle)
+        {
+            int revision = ++hintDetectionRevision;
+            Task.Run(() => Targeting.FindTargets(bundle, engine)).ContinueWith(task => window.Dispatcher.BeginInvoke(new Action(() => {
+                if (closed || revision != hintDetectionRevision || current != bundle || !String.IsNullOrEmpty(targets[bundle.Id])) return;
+                if (task.IsFaulted) { Control<TextBlock>("TargetStatus").Text = "Target hints could not be checked. Choose a folder manually."; return; }
+                var found = task.Result;
+                if (found.Count == 1)
+                {
+                    targets[bundle.Id] = found[0]; preview = null; SaveSettings(); UpdateSession();
+                }
+                else Control<TextBlock>("TargetStatus").Text = found.Count == 0 ? "No hinted folder matched this app version. Choose a folder manually." : "More than one hinted folder matched. Choose a folder manually.";
+            })));
         }
         void RenderHistory()
         {
