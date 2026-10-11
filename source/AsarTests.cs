@@ -77,6 +77,16 @@ namespace Patchwork
         }
         public static void Boundaries(string root)
         {
+            string emptyHash = PatchEngine.Hash(new byte[0]);
+            var emptyIntegrity = new Dictionary<string, object> { { "algorithm", "SHA256" }, { "hash", emptyHash }, { "blockSize", 4194304 }, { "blocks", new[] { emptyHash } } };
+            var emptyMember = new Dictionary<string, object> { { "size", 0 }, { "offset", "0" }, { "integrity", emptyIntegrity } };
+            var emptyHeader = new Dictionary<string, object> { { "files", new Dictionary<string, object> { { "empty.js", emptyMember } } } };
+            string emptyBefore, emptyAfter; byte[] empty = Header(emptyHeader, new byte[0]);
+            AsarPatches.Compare(empty, empty, out emptyBefore, out emptyAfter);
+            emptyIntegrity["blocks"] = new string[0]; byte[] legacyEmpty = Header(emptyHeader, new byte[0]);
+            AsarPatches.Compare(legacyEmpty, empty, out emptyBefore, out emptyAfter);
+            emptyIntegrity["blocks"] = new[] { new string('0', 64) };
+            Reject(() => AsarPatches.Compare(Header(emptyHeader, new byte[0]), empty, out emptyBefore, out emptyAfter), "integrity mismatch");
             byte[] original = Archive("alpha beta\n", 8); var bundle = Bundle(original); var op = bundle.Patches[0].Operations[0];
             string before, after;
             Action transform = () => AsarPatches.Transform(original, new List<PatchOperation> { op }, out before, out after);
@@ -140,7 +150,21 @@ namespace Patchwork
             using (var compiler = Process.Start(new ProcessStartInfo(framework, "/nologo /out:\"" + helper + "\" \"" + source + "\"") { UseShellExecute = false, CreateNoWindow = true })) { compiler.WaitForExit(); Assert(compiler.ExitCode == 0, "Holder compilation failed."); }
             using (var child = Process.Start(new ProcessStartInfo(helper) { UseShellExecute = false, CreateNoWindow = true }))
             {
-                try { Reject(() => Worker.CheckClientClosed(target), "Close Blitz"); } finally { if (!child.HasExited) child.Kill(); child.WaitForExit(); }
+                try
+                {
+                    Reject(() => Worker.CheckClientClosed(target), "Close Blitz");
+                    string game = Path.Combine(target, ".lunarclient", "offline", "multiver"); Directory.CreateDirectory(game);
+                    File.WriteAllBytes(Path.Combine(game, "lunar.jar"), new byte[0]);
+                    Worker.CheckClientClosed(target);
+                    string lunar = Path.Combine(target, "Lunar Client.exe"); File.Copy(helper, lunar);
+                    using (var lunarProcess = Process.Start(new ProcessStartInfo(lunar) { UseShellExecute = false, CreateNoWindow = true }))
+                    {
+                        Assert(!lunarProcess.WaitForExit(100), "Lunar process fixture exited before inspection.");
+                        try { Reject(() => Worker.CheckClientClosed(target), "Close Lunar Client"); }
+                        finally { if (!lunarProcess.HasExited) lunarProcess.Kill(); lunarProcess.WaitForExit(); }
+                    }
+                }
+                finally { if (!child.HasExited) child.Kill(); child.WaitForExit(); }
             }
         }
     }

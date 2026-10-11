@@ -121,4 +121,3 @@ Project licensing scope
 SPDX-License-Identifier: GPL-2.0-only
 
 This project licenses its original code and documentation under GPL-2.0-only. Third-party components retain their own terms. Mono.Cecil is licensed under MIT/X11; see source/lib/Mono.Cecil.LICENSE.txt and THIRD-PARTY.md.
-

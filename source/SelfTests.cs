@@ -107,6 +107,46 @@ namespace Patchwork
                 var journal = engine.Apply(plan); engine.Restore(journal);
                 Assert(File.ReadAllBytes(Path.Combine(target, "hello.txt")).SequenceEqual(original), "BOM round-trip changed bytes.");
             });
+            Test("Large JavaScript text replacements apply, update, roll back and restore within extension bounds", delegate {
+                string data = Path.Combine(root, "large-js"), target = TestFixtures.CreateDemo(Path.Combine(root, "large-js-target"));
+                var engine = new PatchEngine(data);
+                string file = Path.Combine(target, "client.js"), marker = "PATCHWORK_MARKER";
+                byte[] original = Encoding.UTF8.GetBytes(new string('a', 9 * 1024 * 1024) + marker + new string('b', 64));
+                File.WriteAllBytes(file, original);
+                var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe());
+                var operation = new PatchOperation { Kind = "textReplace", File = "client.js", Sha256 = PatchEngine.Hash(original), Find = marker, Replacement = "first", Count = 1 };
+                bundle.Patches[0].Operations.Add(operation);
+                var plan = engine.Preview(bundle, target, new[] { "midnight-theme" });
+                Assert(plan.Files.Single(x => x.RelativePath == "client.js").AfterBytes.Length > 8 * 1024 * 1024, "Large JavaScript output was not retained.");
+                engine.BeforeWriteForTest = index => { if (index == 1) throw new IOException("Simulated failed multi-file write"); };
+                ExpectFailure(() => engine.Apply(plan), "Original files were restored");
+                Assert(File.ReadAllBytes(file).SequenceEqual(original) && File.ReadAllText(Path.Combine(target, "settings.json")) == TestFixtures.DemoConfig, "Failed apply did not roll back all files.");
+                engine.BeforeWriteForTest = null;
+                var first = engine.Apply(engine.Preview(bundle, target, new[] { "midnight-theme" }));
+                Assert(File.ReadAllText(file).Contains("first"), "Large JavaScript apply failed.");
+                operation.Replacement = "second";
+                var next = engine.Apply(engine.Preview(bundle, target, new[] { "midnight-theme" }));
+                Assert(next.PreviousJournalId == first.Id && File.ReadAllText(file).Contains("second"), "Large JavaScript update failed.");
+                engine.Restore(next);
+                Assert(File.ReadAllBytes(file).SequenceEqual(original), "Large JavaScript restore was not byte-exact.");
+            });
+            Test("Text target bounds, UTF-8 and exact match counts remain enforced", delegate {
+                string data = Path.Combine(root, "text-bounds"), target = TestFixtures.CreateDemo(Path.Combine(root, "text-bounds-target"));
+                string oversizedJs = Path.Combine(target, "oversized.js"); File.WriteAllBytes(oversizedJs, new byte[16 * 1024 * 1024 + 1]);
+                ExpectFailure(() => PatchEngine.Read(oversizedJs), "16 MB");
+                string oversizedConfig = Path.Combine(target, "oversized.txt"); File.WriteAllBytes(oversizedConfig, new byte[8 * 1024 * 1024 + 1]);
+                ExpectFailure(() => PatchEngine.Read(oversizedConfig), "8 MB");
+                ExpectFailure(() => PatchEngine.Decode(new byte[] { 0xff }), "bytes");
+                ExpectFailure(() => PatchEngine.Decode(new byte[] { 0x61, 0x00 }), "UTF-8");
+                string recipe = TestFixtures.DemoRecipe();
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.bat\"")), "Only UTF-8");
+                ExpectFailure(() => PatchBundle.Parse(recipe.Replace("\"settings.json\"", "\"run.ps1\"")), "Only UTF-8");
+                byte[] source = Encoding.UTF8.GetBytes(new string('a', 15 * 1024 * 1024) + "x");
+                File.WriteAllBytes(Path.Combine(target, "oversized-result.js"), source);
+                var bundle = PatchBundle.Parse(recipe); bundle.Patches[0].Operations.Clear();
+                bundle.Patches[0].Operations.Add(new PatchOperation { Kind = "textReplace", File = "oversized-result.js", Sha256 = PatchEngine.Hash(source), Find = "x", Replacement = new string('y', 2 * 1024 * 1024), Count = 1 });
+                ExpectFailure(() => new PatchEngine(data).Preview(bundle, target, new[] { "midnight-theme" }), "16 MB");
+            });
             Test("Already-patched targets and repeated restores are refused", delegate {
                 string data = Path.Combine(root, "idempotency"); var engine = new PatchEngine(data); string target = TestFixtures.CreateDemo(data); var bundle = PatchBundle.Parse(TestFixtures.DemoRecipe());
                 var journal = engine.Apply(engine.Preview(bundle, target, new[] { "midnight-theme" }));
@@ -147,9 +187,10 @@ namespace Patchwork
             Test("Presentation operations refuse wrong UI receivers, parameters and enum values", () => PresentationTests.Validation(root));
             Test("Embedded client fallback preserves original behavior and after hooks", () => ModuleTests.Runtime(root));
             Test("Embedded client modules refuse invalid hashes, entries and signatures", () => ModuleTests.Validation(root));
+            Test("Binary and JAR edits validate, upgrade, roll back and restore", () => BinaryTests.Run(root));
             Test("ASAR previews compose, update, recover and restore archives larger than 8 MB", () => AsarTests.Transactions(root));
             Test("ASAR parsing, entry integrity, counts, conflicts and paths are bounded", () => AsarTests.Boundaries(root));
-            Test("Running Blitz processes block archive transactions", () => AsarTests.RunningClient(root));
+            Test("Client process guards block patched apps and ignore unrelated apps for Lunar", () => AsarTests.RunningClient(root));
             Test("ASAR companion checksums compose, upgrade old sessions, roll back and restore both files", () => AsarTests.Checksums(root));
             Test("Blitz folder detection requires both executable and archive and respects candidate order", delegate {
                 string missing = Path.Combine(root, "blitz-missing"), executableOnly = Path.Combine(root, "blitz-exe-only"), archiveOnly = Path.Combine(root, "blitz-asar-only");
@@ -161,6 +202,8 @@ namespace Patchwork
                 Assert(MainController.FindBlitzFolder(new[] { missing, executableOnly, archiveOnly, local, system }) == local, "Per-user installation was not selected first.");
                 Assert(MainController.FindBlitzFolder(new[] { missing, system }) == system, "System installation was not detected.");
             });
+            Test("Paged previews preserve complete content with bounded Unicode pages", () => PreviewPagingTests.Run());
+            Test("WPF controller keeps dispatcher responsive and rejects stale async results", () => ControllerTests.Run(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);
             return failed == 0 ? 0 : 1;

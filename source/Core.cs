@@ -80,6 +80,8 @@ namespace Patchwork
         public string Kind, File, Sha256, Find, Replacement, Method, CalledMethod, Type, ReturnType;
         public string Entry, EntrySha256;
         public string Archive, ArchiveSha256;
+        public string BinaryData, ResultSha256;
+        public List<BinaryEdit> BinaryEdits = new List<BinaryEdit>();
         public int Offset;
         public List<string> Path = new List<string>();
         public object Expected, Value;
@@ -146,11 +148,13 @@ namespace Patchwork
                     bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
                     bool asar = op.Kind == "asarTextReplace";
                     bool checksum = op.Kind == "asarChecksum";
+                    bool binary = BinaryPatches.IsOperation(op.Kind);
                     if (managed) ManagedPatches.Parse(op, opRaw);
                     else if (asar) AsarPatches.Parse(op, opRaw);
                     else if (checksum) AsarChecksum.Parse(op, opRaw);
+                    else if (binary) BinaryPatches.Parse(op, opRaw);
                     else if (!AllowedExtension(op.File)) throw new InvalidDataException("Only UTF-8 configuration and text resources are supported for text operations: " + op.File);
-                    if (managed || asar || checksum) { }
+                    if (managed || asar || checksum || binary) { }
                     else if (op.Kind == "jsonSet")
                     {
                         if (!op.File.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("jsonSet requires a .json file.");
@@ -211,7 +215,7 @@ namespace Patchwork
         }
         static bool AllowedExtension(string path)
         {
-            return new[] { ".json", ".txt", ".css", ".xml", ".ini", ".yaml", ".yml", ".toml", ".conf", ".config" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+            return new[] { ".json", ".txt", ".css", ".xml", ".ini", ".yaml", ".yml", ".toml", ".conf", ".config", ".js" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
         }
     }
 
@@ -224,6 +228,7 @@ namespace Patchwork
         [ScriptIgnore] public List<PatchOperation> ManagedOperations = new List<PatchOperation>();
         [ScriptIgnore] public List<PatchOperation> AsarOperations = new List<PatchOperation>();
         [ScriptIgnore] public PatchOperation ChecksumOperation;
+        [ScriptIgnore] public List<PatchOperation> BinaryOperations = new List<PatchOperation>();
     }
     public class PatchPlan
     {
@@ -269,7 +274,9 @@ namespace Patchwork
     {
         public readonly string DataRoot;
         readonly object transactionLock = new object();
+#if TEST_BUILD
         public Action<int> BeforeWriteForTest;
+#endif
         public PatchEngine(string dataRoot) { DataRoot = Path.GetFullPath(dataRoot); Directory.CreateDirectory(DataRoot); }
         public static string Hash(byte[] bytes)
         {
@@ -279,7 +286,7 @@ namespace Patchwork
         {
             return Read(file, TargetLimit(file));
         }
-        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : 8 * 1024 * 1024; }
+        static int TargetLimit(string file) { return file.EndsWith(".asar", StringComparison.OrdinalIgnoreCase) ? AsarPatches.MaximumSize : file.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) ? AsarChecksum.MaximumSize : file.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.MaximumSize : file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? BinaryPatches.MaximumSize : file.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ? 16 * 1024 * 1024 : 8 * 1024 * 1024; }
         static byte[] ReadBackup(string file, string relative) { return Read(file, TargetLimit(relative)); }
         static byte[] Read(string file, int maximum)
         {
@@ -301,12 +308,12 @@ namespace Patchwork
             if (text.IndexOf('\0') >= 0) throw new InvalidDataException("Only UTF-8 text files are supported.");
             return text;
         }
-        static byte[] Encode(string text, byte[] original)
+        static byte[] Encode(string text, byte[] original, string relative)
         {
             byte[] bytes = new UTF8Encoding(false, true).GetBytes(text);
-            if (bytes.Length > 8 * 1024 * 1024) throw new InvalidDataException("The patched file would exceed 8 MB.");
             if (original.Length >= 3 && original[0] == 0xef && original[1] == 0xbb && original[2] == 0xbf)
-                return new byte[] { 0xef, 0xbb, 0xbf }.Concat(bytes).ToArray();
+                bytes = new byte[] { 0xef, 0xbb, 0xbf }.Concat(bytes).ToArray();
+            if (bytes.Length > TargetLimit(relative)) throw new InvalidDataException("The patched file would exceed " + (TargetLimit(relative) / 1024 / 1024) + " MB.");
             return bytes;
         }
         public static string Resolve(string root, string relative)
@@ -356,7 +363,7 @@ namespace Patchwork
                         {
                             byte[] before = ReadOriginal(full, originals);
                             bool managed = op.Kind.StartsWith("managed", StringComparison.Ordinal);
-                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" || op.Kind == "asarChecksum" ? "" : Decode(before) };
+                            change = new FileChange { RelativePath = op.File, BeforeBytes = before, BeforeHash = Hash(before), BeforeText = managed || op.Kind == "asarTextReplace" || op.Kind == "asarChecksum" || BinaryPatches.IsOperation(op.Kind) ? "" : Decode(before) };
                             change.AfterText = change.BeforeText;
                             files.Add(full, change);
                         }
@@ -376,6 +383,11 @@ namespace Patchwork
                             if (change.ChecksumOperation != null && (change.ChecksumOperation.Archive != op.Archive || change.ChecksumOperation.ArchiveSha256 != op.ArchiveSha256 || change.ChecksumOperation.Offset != op.Offset)) throw new InvalidOperationException("Conflicting ASAR companion checksums.");
                             change.ChecksumOperation = op;
                             change.Details.Add(patch.Name + ": update four-byte ASAR checksum · " + op.Archive);
+                        }
+                        else if (BinaryPatches.IsOperation(op.Kind))
+                        {
+                            change.BinaryOperations.Add(op);
+                            change.Details.Add(patch.Name + ": executable binary edit · " + (op.Entry ?? op.File));
                         }
                         else if (op.Kind == "jsonSet")
                         {
@@ -427,7 +439,13 @@ namespace Patchwork
                         change.AfterBytes = AsarChecksum.Transform(change.BeforeBytes, archive, change.ChecksumOperation);
                         change.BeforeText = AsarChecksum.Describe(change.BeforeBytes); change.AfterText = AsarChecksum.Describe(change.AfterBytes);
                     }
-                    else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes);
+                    else if (change.BinaryOperations.Count > 0)
+                    {
+                        string beforeText, afterText;
+                        change.AfterBytes = change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) ? JarPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText) : BinaryPatches.Transform(change.BeforeBytes, change.BinaryOperations, out beforeText, out afterText);
+                        change.BeforeText = beforeText; change.AfterText = afterText;
+                    }
+                    else change.AfterBytes = Encode(change.AfterText, change.BeforeBytes, change.RelativePath);
                     change.AfterHash = Hash(change.AfterBytes);
                     if (change.AfterHash != change.BeforeHash) plan.Files.Add(change);
                 }
@@ -471,7 +489,9 @@ namespace Patchwork
                 {
                     for (int i = 0; i < plan.Files.Count; i++)
                     {
+#if TEST_BUILD
                         if (BeforeWriteForTest != null) BeforeWriteForTest(i);
+#endif
                         var change = plan.Files[i];
                         if (change.BeforeHash == change.AfterHash) continue;
                         string destination = Resolve(plan.TargetRoot, change.RelativePath);
@@ -537,28 +557,31 @@ namespace Patchwork
         }
         public List<Journal> History()
         {
-            string history = Path.Combine(DataRoot, "history");
-            var result = new List<Journal>();
-            if (!Directory.Exists(history)) return result;
-            foreach (string directory in Directory.GetDirectories(history))
+            lock (transactionLock)
             {
-                try
+                string history = Path.Combine(DataRoot, "history");
+                var result = new List<Journal>();
+                if (!Directory.Exists(history)) return result;
+                foreach (string directory in Directory.GetDirectories(history))
                 {
-                    string path = Resolve(directory, "journal.json");
-                    var journal = Json.Serializer.Deserialize<Journal>(Decode(Read(path)));
-                    if (journal == null || journal.Files == null || journal.PatchNames == null || journal.Id != Path.GetFileName(directory)) continue;
-                    journal.DirectoryPath = directory;
-                    result.Add(journal);
+                    try
+                    {
+                        string path = Resolve(directory, "journal.json");
+                        var journal = Json.Serializer.Deserialize<Journal>(Decode(Read(path)));
+                        if (journal == null || journal.Files == null || journal.PatchNames == null || journal.Id != Path.GetFileName(directory)) continue;
+                        journal.DirectoryPath = directory;
+                        result.Add(journal);
+                    }
+                    catch { /* Ignore unreadable entries; do not mutate an unknown journal. */ }
                 }
-                catch { /* Ignore unreadable entries; do not mutate an unknown journal. */ }
+                // Also derive predecessor state if a process stopped after committing the child journal.
+                foreach (var child in result.Where(x => !String.IsNullOrEmpty(x.PreviousJournalId) && !x.RestoreToPrevious && (x.State == "Applied" || x.State == "Restored" || x.State == "Restoring" || x.State == "RecoveryRequired")))
+                {
+                    var parent = result.SingleOrDefault(x => x.Id == child.PreviousJournalId);
+                    if (parent != null && parent.State == "Applied") { parent.State = "Superseded"; parent.SupersededBy = child.Id; }
+                }
+                return result.OrderByDescending(x => x.CreatedUtc, StringComparer.Ordinal).ToList();
             }
-            // Also derive predecessor state if a process stopped after committing the child journal.
-            foreach (var child in result.Where(x => !String.IsNullOrEmpty(x.PreviousJournalId) && !x.RestoreToPrevious && (x.State == "Applied" || x.State == "Restored" || x.State == "Restoring" || x.State == "RecoveryRequired")))
-            {
-                var parent = result.SingleOrDefault(x => x.Id == child.PreviousJournalId);
-                if (parent != null && parent.State == "Applied") { parent.State = "Superseded"; parent.SupersededBy = child.Id; }
-            }
-            return result.OrderByDescending(x => x.CreatedUtc, StringComparer.Ordinal).ToList();
         }
         void EnsureNoRecoveryPending(string root)
         {

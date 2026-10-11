@@ -71,7 +71,7 @@ namespace Patchwork
                 RenderSources();
                 string result = updated + " patch pack(s) updated" + (errors == 0 ? "." : "; " + errors + " source check(s) need attention.");
                 Control<TextBlock>("SourcesStatus").Text = result;
-                if (manual || updated > 0) Notify(result + (updated > 0 ? " Preview to update applied patches." : ""), errors > 0);
+                if (!busy && (manual || updated > 0)) Notify(result + (updated > 0 ? " Preview to update applied patches." : ""), errors > 0);
             }
             finally { checkingSources = false; if (!closed) { Control<Grid>("SourcesPage").IsEnabled = !busy; Control<Button>("ImportButton").IsEnabled = !busy; } }
         }

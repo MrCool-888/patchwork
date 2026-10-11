@@ -39,13 +39,16 @@ namespace Patchwork
         }
         public Journal VerifiedAppliedSession(PatchBundle bundle, string root)
         {
-            EnsureNoRecoveryPending(root);
-            var journal = ActiveSession(root);
-            if (journal == null) return null;
-            if (journal.BundleId != bundle.Id) throw new InvalidOperationException("A different patch pack is applied to this folder.");
-            var originals = VerifyOriginals(journal);
-            if (Hash(ReadOriginal(Resolve(root, bundle.VersionFile), originals)) != bundle.VersionSha256) throw new InvalidOperationException("The saved originals do not match this app version.");
-            return journal;
+            lock (transactionLock)
+            {
+                EnsureNoRecoveryPending(root);
+                var journal = ActiveSession(root);
+                if (journal == null) return null;
+                if (journal.BundleId != bundle.Id) throw new InvalidOperationException("A different patch pack is applied to this folder.");
+                var originals = VerifyOriginals(journal);
+                if (Hash(ReadOriginal(Resolve(root, bundle.VersionFile), originals)) != bundle.VersionSha256) throw new InvalidOperationException("The saved originals do not match this app version.");
+                return journal;
+            }
         }
         public PatchPlan Preview(PatchBundle bundle, string root, IEnumerable<string> selection)
         {
@@ -101,6 +104,7 @@ namespace Patchwork
                         change.BeforeText = beforeText; change.AfterText = afterText;
                     }
                     else if (change.RelativePath.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)) { change.BeforeText = AsarChecksum.Describe(change.BeforeBytes); change.AfterText = AsarChecksum.Describe(change.AfterBytes); }
+                    else if (change.RelativePath.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || change.RelativePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) { change.BeforeText = BinaryPatches.Describe(change.BeforeBytes); change.AfterText = BinaryPatches.Describe(change.AfterBytes) + "\nExecutable client edit; review the selected patch descriptions."; }
                     else { change.BeforeText = Decode(change.BeforeBytes); change.AfterText = Decode(change.AfterBytes); }
                     plan.Files.Add(change);
                 }

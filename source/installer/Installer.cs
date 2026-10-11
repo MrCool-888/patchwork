@@ -19,8 +19,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Patchwork Setup")]
 [assembly: AssemblyProduct("Patchwork")]
-[assembly: AssemblyVersion("0.8.2.0")]
-[assembly: AssemblyFileVersion("0.8.2.0")]
+[assembly: AssemblyVersion("0.9.3.0")]
+[assembly: AssemblyFileVersion("0.9.3.0")]
 
 namespace PatchworkSetup
 {
@@ -34,13 +34,15 @@ namespace PatchworkSetup
     public static class InstallerEngine
     {
         public const string ProductId = "8b72ca27-3a4b-45af-9d7c-61951c6bdf70";
-        public const string Version = "0.8.2";
+        public const string Version = "0.9.3";
         const string Marker = "patchwork-install.json";
         const string RegistryPath = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Patchwork";
         static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 2 * 1024 * 1024 };
         public static string DefaultRoot { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Patchwork"); } }
         public static string DataRoot { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Patchwork", "Data"); } }
+#if TEST_BUILD
         public static Action<int> BeforeStageForTest;
+#endif
         static string Hash(byte[] bytes) { using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant(); }
         static string Canonical(string root)
         {
@@ -132,11 +134,15 @@ namespace PatchworkSetup
                 using (var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("Patchwork.Payload.zip"))
                 using (var zip = new ZipArchive(resource, ZipArchiveMode.Read))
                 {
+#if TEST_BUILD
                     int index = 0;
+#endif
                     foreach (var entry in zip.Entries)
                     {
                         if (entry.FullName.EndsWith("/")) continue;
+#if TEST_BUILD
                         if (BeforeStageForTest != null) BeforeStageForTest(index++);
+#endif
                         string file = Resolve(stage, entry.FullName);
                         if (info.Files.ContainsKey(entry.FullName)) throw new IOException("Duplicate package file.");
                         if (entry.Length > 16 * 1024 * 1024) throw new IOException("Invalid package size.");
@@ -267,6 +273,7 @@ namespace PatchworkSetup
                 if (key == null || !String.Equals(key.GetValue("InstallLocation") as string, root, StringComparison.OrdinalIgnoreCase)) return;
             Registry.CurrentUser.DeleteSubKey(RegistryPath, false);
         }
+#if TEST_BUILD
         public static int SelfTest(string scratch)
         {
             scratch = Canonical(scratch); Directory.CreateDirectory(scratch);
@@ -298,6 +305,7 @@ namespace PatchworkSetup
             File.WriteAllText(Path.Combine(scratch, "installer-results.txt"), passed + " installer checks passed. Tests used isolated program folders and a temporary shortcut; the real Installed Apps registry and user shortcuts were not modified.\r\n");
             Console.WriteLine(passed + " installer checks passed."); return 0;
         }
+#endif
     }
 
     public static class Program
@@ -307,7 +315,9 @@ namespace PatchworkSetup
         {
             try
             {
+#if TEST_BUILD
                 string tests = Argument(args, "--self-test"); if (tests != null) return InstallerEngine.SelfTest(tests);
+#endif
                 bool uninstall = args.Contains("--uninstall") || Path.GetFileNameWithoutExtension(Assembly.GetExecutingAssembly().Location).Equals("Uninstall", StringComparison.OrdinalIgnoreCase);
                 string root = Path.GetFullPath(Argument(args, "--install-root") ?? (uninstall ? AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\') : InstallerEngine.DefaultRoot));
                 string screenshot = Argument(args, "--screenshot"); if (screenshot != null) screenshot = Path.GetFullPath(screenshot);
@@ -381,7 +391,7 @@ namespace PatchworkSetup
                 content.Children.Add(Text("Add separate patch files after installation.", 12, "#929DB1", 12));
             }
             else { content.Children.Add(Text("Restore any active patches in Patchwork before uninstalling if you want the target files returned to their originals.", 12, "#E9C985", 20)); }
-            status = Text("Version 0.8.2 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
+            status = Text("Version 0.9.3 · Local patching · GitHub app updates", 12, "#73819A", 22); content.Children.Add(status); body.Children.Add(content);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) }; Grid.SetRow(buttons, 1);
             cancel = Button("Cancel", false); cancel.Margin = new Thickness(0, 0, 12, 0); cancel.Click += delegate { Close(); }; buttons.Children.Add(cancel);
             action = Button(uninstall ? "Uninstall" : "Install Patchwork", true); action.Click += async delegate { await RunAction(); }; buttons.Children.Add(action); body.Children.Add(buttons);
