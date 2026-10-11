@@ -1,4 +1,4 @@
-# Patchwork 0.10.0 prerelease validation
+# Patchwork 1.0.0 prerelease validation
 
 Date: 2026-10-11. Scope: portable Windows recipes, author tools and synthetic examples. Stable latest remains 0.9.3.
 
@@ -14,7 +14,7 @@ A real-pack comparison found and fixed an ASAR regression involving valid `unpac
 
 ## Existing application packs
 
-Separate 0.9.3 and 0.10.0 processes operated only on isolated copies of exact original app files. Both versions passed deterministic preview, apply, metadata/selection update, deselection and byte-exact original restore.
+Separate 0.9.3 and 1.0.0 processes operated only on isolated copies of exact original app files. Both versions passed deterministic preview, apply, metadata/selection update, deselection and byte-exact original restore.
 
 | Pack | Compared target files | Result |
 | --- | ---: | --- |
@@ -33,8 +33,8 @@ The GUI production executable also returns actionable redirected diagnostics and
 
 ## Installer and remaining limits
 
-The installer passed **9 self-checks** and **10 update-lock checks**. An actual isolated 0.9.3-to-0.10.0 installer upgrade preserved an unrelated note; registry entries and shortcuts were disabled for that test. Production binaries are checked for version and absence of test fixtures/hooks. The production worker protocol is checked separately; a real UAC dialog is not automated.
+The installer passed **9 self-checks** and **10 update-lock checks**. An actual isolated 0.9.3-to-1.0.0 installer upgrade preserved an unrelated note; registry entries and shortcuts were disabled for that test. Production binaries are checked for version and absence of test fixtures/hooks. The production worker protocol is checked separately; a real UAC dialog is not automated.
 
-This prerelease supports bounded recipes, not arbitrary patcher plugins. Native binary edits and Java classes require author runtime validation. Signature-enforced or encrypted packaging, mixed native/managed IL rewriting, Android, and novel formats are not claimed. Use 0.10.0 to restore its new file-add transactions before returning to an older patcher. Existing stable packs require no edits.
+This prerelease supports bounded recipes, not arbitrary patcher plugins. Native binary edits and Java classes require author runtime validation. Signature-enforced or encrypted packaging, mixed native/managed IL rewriting, Android, and novel formats are not claimed. Use 1.0.0 to restore its new file-add transactions before returning to an older patcher. Existing stable packs require no edits.
 
 Release delivery checks verify installer/source/example assets, their SHA-256 digests, prerelease discovery and preservation of stable latest. Source and examples are published separately from normal patch-source JSON assets.
