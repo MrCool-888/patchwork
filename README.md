@@ -13,11 +13,11 @@ Requires Windows 10/11 x64 and .NET Framework 4.8. The installer includes no pat
 3. Review the changes, close the target app, then apply.
 4. Use **Backups & restore** to recover the original files.
 
-Choose Dark or Light and a Violet, Blue, Mint or Amber accent in **Settings → Appearance**. Packs must match your app version. Keep your backups, and use packs from authors you trust.
+Choose Dark or Light and a Violet, Blue, Mint or Amber accent in **Settings → Appearance**. Window icons follow your accent. Packs must match your app version. Keep your backups, and use packs from authors you trust.
 
 ## Documentation
 
-[User guide](docs/USER-GUIDE.md) · [Make patches](docs/AUTHORING.md) · [Patch format](PATCH-FORMAT.md) · [Examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples) · [Build](docs/BUILD.md) · [Validation](docs/UI-VALIDATION.md)
+[User guide](docs/USER-GUIDE.md) · [Make patches](docs/AUTHORING.md) · [Patch format](PATCH-FORMAT.md) · [Examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples) · [Build](docs/BUILD.md) · [Validation](docs/ICON-VALIDATION.md)
 
 ## Disclaimer
 

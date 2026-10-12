@@ -30,6 +30,8 @@ Keep the Patchwork data folder and its backups. Updating or uninstalling Patchwo
 
 Open **Settings → Appearance**. Choose **Dark** or **Light**, then **Violet**, **Blue**, **Mint** or **Amber**. Changes are immediate and remembered. These colors affect Patchwork; color options in a patch pack affect the target app separately.
 
-**Settings → Patchwork app updates** updates the patcher itself. **Patch sources** updates patch packs. Patchwork 1.1.0 is a stable release; prerelease app versions do not need to be enabled to discover it. The installer verifies its download and keeps your separate data folder.
+The running window's icon, including its Windows title-bar icon, follows your accent. Files and shortcuts use a neutral logo when the app is not running.
+
+**Settings → Patchwork app updates** updates the patcher itself. **Patch sources** updates patch packs. Patchwork 1.1.1 is a stable release; prerelease app versions do not need to be enabled to discover it. The installer verifies its download and keeps your separate data folder.
 
 For making packs, use [the authoring guide](AUTHORING.md). For technical details, see [the patch format](../PATCH-FORMAT.md) and [build instructions](BUILD.md).

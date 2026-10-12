@@ -102,7 +102,7 @@ namespace Patchwork
             this.window = window; engine = new PatchEngine(dataRoot);
             InitializeAppearance(); InitializeSources(); InitializeAsync();
             LoadSettings(); LoadColorOptions(); LoadRecipes();
-            Control<TextBlock>("BuildVersion").Text = "v" + Updates.DisplayVersion + " · Prerelease";
+            Control<TextBlock>("BuildVersion").Text = "v" + Updates.DisplayVersion;
             Control<TextBlock>("UpdateVersion").Text = "Installed version " + Updates.DisplayVersion;
             Control<CheckBox>("AutoUpdateCheck").IsChecked = LoadUpdatePreference();
             Control<CheckBox>("AutoUpdateCheck").Click += delegate { SaveUpdatePreference(); };
@@ -463,7 +463,7 @@ namespace Patchwork
 #if TEST_BUILD
             if (ConfirmDialogForTest != null) return ConfirmDialogForTest(title);
 #endif
-            var dialog = new Window { Title = title, Owner = window, Width = 510, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Color("#151D2B"), Foreground = Color("#E8EDF6"), FontFamily = new FontFamily("Segoe UI"), ShowInTaskbar = false };
+            var dialog = new Window { Title = title, Owner = window, Icon = window.Icon, Width = 510, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Color("#151D2B"), Foreground = Color("#E8EDF6"), FontFamily = new FontFamily("Segoe UI"), ShowInTaskbar = false };
             var body = new StackPanel { Margin = new Thickness(26) }; var heading = Text(title, 22, "#E8EDF6"); heading.FontWeight = FontWeights.SemiBold; body.Children.Add(heading);
             var description = Text(message, 13, "#A3AEC2"); description.Margin = new Thickness(0, 16, 0, 24); description.LineHeight = 21; body.Children.Add(description);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };

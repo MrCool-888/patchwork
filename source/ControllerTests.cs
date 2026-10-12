@@ -367,6 +367,10 @@ namespace Patchwork
                         fixture.Window.UpdateLayout();
                         Assert(!background.IsFrozen && Object.ReferenceEquals(background, appearance.Semantic("UiSurface")), "Actual WPF styles froze or replaced live theme brushes.");
                         Assert(appearance.Theme == theme && appearance.Accent == accent, "Appearance controls did not apply their values.");
+                        var icon = fixture.Window.Icon as System.Windows.Media.Imaging.BitmapSource;
+                        Assert(AppearanceTests.IconMatches(icon, appearance.Semantic("UiAccent").Color, appearance.Semantic("UiAccentForeground").Color), "The actual window icon did not follow the selected accent.");
+                        Assert(NativeIconMatches(fixture.Window, 0, appearance.Semantic("UiAccent").Color, appearance.Semantic("UiAccentForeground").Color), "The Windows title-bar icon kept the old accent.");
+                        Assert(NativeIconMatches(fixture.Window, 1, appearance.Semantic("UiAccent").Color, appearance.Semantic("UiAccentForeground").Color), "The Windows large window icon kept the old accent.");
                     }
                 Assert(Field<PatchPlan>(fixture.Controller, "preview") == preview && selected.SetEquals(selection) && targets["sandbox-v1"] == target, "Changing app appearance invalidated a preview, selection or target.");
                 var saved = UiAppearance.LoadPreferences(fixture.Data);
@@ -404,6 +408,22 @@ namespace Patchwork
                 PumpTask((Task)Call(fixture.Controller, "BuildPreview"));
                 Assert(fixture.Control<TextBlock>("BeforeLabel").Text == "Before · file absent", "The initial preview mislabeled a new file as an original file.");
                 Assert(!File.Exists(Path.Combine(fixture.Target, "added.txt")) && fixture.Control<TextBlock>("AfterLabel").Text == "After applying", "The added-file review wrote a file or displayed the wrong result state.");
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessageW")]
+        static extern IntPtr IconMessage(IntPtr window, uint message, IntPtr kind, IntPtr unused);
+        static bool NativeIconMatches(Window window, int kind, System.Windows.Media.Color background, System.Windows.Media.Color foreground)
+        {
+            IntPtr handle = IconMessage(new System.Windows.Interop.WindowInteropHelper(window).Handle, 0x007F, new IntPtr(kind), IntPtr.Zero);
+            if (handle == IntPtr.Zero) return false;
+            using (var icon = System.Drawing.Icon.FromHandle(handle))
+            using (var image = icon.ToBitmap())
+            {
+                var fill = image.GetPixel(image.Width / 2, image.Height / 2);
+                var ink = image.GetPixel(image.Width * 10 / 32, image.Height / 2);
+                return Math.Abs(fill.R - background.R) <= 1 && Math.Abs(fill.G - background.G) <= 1 && Math.Abs(fill.B - background.B) <= 1
+                    && Math.Abs(ink.R - foreground.R) <= 1 && Math.Abs(ink.G - foreground.G) <= 1 && Math.Abs(ink.B - foreground.B) <= 1;
             }
         }
 

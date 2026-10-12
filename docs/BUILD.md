@@ -11,4 +11,6 @@ Run these commands from the repository root on Windows x64. The Windows .NET Fra
 
 Tests and mutation hooks compile only with `-Tests`; the installer uses a production build. Use a separate `--data-dir PATH` for isolated testing. Builds include no patch packs.
 
-Use a release tag, such as `v1.1.0`, to build the exact published source. The default branch also includes current documentation. See [validation](UI-VALIDATION.md) for evidence and limits.
+Use a release tag, such as `v1.1.1`, to build the exact published source. The default branch also includes current documentation. See [icon validation](ICON-VALIDATION.md) and [UI validation](UI-VALIDATION.md) for evidence and limits.
+
+The neutral Windows icon is checked in. Regenerate it with `& .\source\build-icons.ps1` after changing the logo renderer.

@@ -134,6 +134,7 @@ namespace Patchwork
             appearance = new UiAppearance(window.Resources);
             string[] saved = UiAppearance.LoadPreferences(engine.DataRoot);
             appearance.Apply(saved[0], saved[1]);
+            UpdateAppearanceIcon();
             var themes = window.FindName("ThemePicker") as ComboBox; var accents = window.FindName("AccentPicker") as ComboBox;
             var status = window.FindName("AppearanceStatus") as TextBlock;
             if (themes == null || accents == null) return;
@@ -145,6 +146,7 @@ namespace Patchwork
             {
                 if (changingAppearance) return;
                 appearance.Apply(themes.SelectedItem as string, accents.SelectedItem as string);
+                UpdateAppearanceIcon();
                 SetAppearanceTitleBar(window, appearance.Theme == "Dark");
                 try
                 {
@@ -157,6 +159,11 @@ namespace Patchwork
             accents.SelectionChanged += delegate { apply(); };
             window.SourceInitialized += delegate { SetAppearanceTitleBar(window, appearance.Theme == "Dark"); };
             if (status != null) status.Text = "Choose a theme and accent color.";
+        }
+
+        void UpdateAppearanceIcon()
+        {
+            window.Icon = AppIcons.Render(appearance.Semantic("UiAccent").Color, appearance.Semantic("UiAccentForeground").Color, 256);
         }
 
         [DllImport("dwmapi.dll", EntryPoint = "DwmSetWindowAttribute", PreserveSig = true)]
