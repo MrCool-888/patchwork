@@ -1,103 +1,30 @@
 # Patchwork
 
-Project license: **GPL-2.0-only**. See [LICENSE](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).
+A Windows patch manager with separate patch packs, before/after previews, verified backups, updates and restore.
 
-Patchwork **1.1.0 prerelease** brings a clearer setup flow, simpler patch cards, a review action that stays visible in compact windows, and a dedicated **Settings** page. Choose **Dark** or **Light** and a **Violet**, **Blue**, **Mint**, or **Amber** accent; appearance updates immediately and is remembered. Existing packs, selections, previews and backups continue to work. See [UI validation](docs/UI-VALIDATION.md). The prerelease source is on `ui-1.1.0` / `v1.1.0`; stable latest remains 0.9.3.
+**[Download the latest release](https://github.com/MrCool-888/patchwork/releases/latest)** · **[Get patch packs](https://github.com/MrCool-888/patchwork-patches)**
 
-Keeps the interface responsive during preview generation, target verification, and history loading. Full before/after previews use paired 32,768-character pages with Previous/Next controls; Unicode surrogate pairs stay together. Preview, apply, and restore display a working indicator and phase text. Existing patch formats, fingerprints, backups, direct updates, and byte-exact restoration remain compatible. [Lunar Client 0.1.6](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.6) patch files need no changes. This installer includes no patch packs or Lunar binaries.
+Requires Windows 10/11 x64 and .NET Framework 4.8. The installer includes no patch packs.
 
-An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
+## Getting started
 
-Patchwork 1.0.0 introduced bounded edits for ordinary files, ZIP-family members and Electron ASAR resources, broader text replacement, target-location/process hints, and a command-line recipe validator for isolated fixtures. New operations require packs to declare `minimumPatcherVersion: "1.0.0"`; stable Patchwork 0.9.3 does not support them. Use 1.1.0 for these operations with the new UI, or the earlier `v1.0.0` / `community-patches` source. See [the patch format](PATCH-FORMAT.md), [the authoring guide](docs/AUTHORING.md), and the separate repository's [five synthetic examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples). These examples demonstrate recipe mechanics, not compatibility with real applications.
+1. Add a trusted GitHub source or open a downloaded patch file.
+2. Choose the app folder and the patches you want.
+3. Review the changes, close the target app, then apply.
+4. Use **Backups & restore** to recover the original files.
 
-| Use case | Patcher | Patch source setting |
-| --- | --- | --- |
-| Current stable packs, including Lunar Client 0.1.6 and the combined Blitz/Proton r3 release | Patchwork 0.9.3 stable | Pre-release patch assets can remain off. |
-| Community packs and guided UI/themes | Patchwork 1.1.0 prerelease | Enable prerelease app updates, or build `ui-1.1.0` / `v1.1.0`. Community capabilities still require minimum version 1.0.0. |
+Choose Dark or Light and a Violet, Blue, Mint or Amber accent in **Settings → Appearance**. Packs must match your app version. Keep your backups, and use packs from authors you trust.
 
-- Patcher source and releases: https://github.com/MrCool-888/patchwork
-- Separate patch files: https://github.com/MrCool-888/patchwork-patches
+## Documentation
 
-## Install and use
+[User guide](docs/USER-GUIDE.md) · [Make patches](docs/AUTHORING.md) · [Patch format](PATCH-FORMAT.md) · [Examples](https://github.com/MrCool-888/patchwork-patches/tree/main/examples) · [Build](docs/BUILD.md) · [Validation](docs/UI-VALIDATION.md)
 
-Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the current Windows user to `%LOCALAPPDATA%\Programs\Patchwork`, adds Start menu shortcuts and an Installed Apps entry, and offers a desktop shortcut. Setup itself needs no administrator rights. Windows 10/11 x64 and .NET Framework 4.8 are required. This is an unsigned development build.
+## Disclaimer
 
-The steps below use 1.1.0 labels. Stable 0.9.3 uses **Preview changes**, **History & restore** and **About this build** for review, restore and app updates. See the shorter [user guide](docs/USER-GUIDE.md).
+Patchwork is an independent project. It is not affiliated with, endorsed by, or sponsored by any apps, services, companies or projects that have patches or inspired this app. Names and trademarks belong to their respective owners.
 
-1. Open Patchwork. Choose **Find community patches** to prefill the community repository on Patch sources, or **Open patch file** for a downloaded pack. A fresh installation contains no packs.
-2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add & download packs**. The current Lunar 0.1.6 and combined Blitz/Proton r3 releases are stable assets, so the prerelease patch option is not required. Alternatively, choose **Open patch file** to import a separate `.json` or `.patchwork` file.
-3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Choose folder…** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
-4. Select patches, set any color options, and choose **Review changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
-5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
-6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **Backups & restore** still restores the original files when you want to remove the patches.
+The software is provided **“as is,” without warranty of any kind. No support is provided.** Use it at your own risk.
 
-## GitHub patch sources
+## License
 
-Paste a public GitHub repository link or a link to one of its releases. Adding a source checks it immediately. Automatic sources check when Patchwork opens if due and about once an hour while it is open. **Check now** and **Check for pack updates** work on demand; each source has an automatic-update switch and a pre-release option. No GitHub sign-in is needed.
-
-Sources download published `.json` or `.patchwork` release assets, validate their size, SHA-256 and supported patch operations, then update saved definitions by bundle ID and pack version. Unchanged assets are cached. A lower version never replaces a newer saved pack, and changed contents with the same version are refused. Offline, invalid or rate-limited checks keep existing packs usable. The UI shows the source, downloaded pack versions, status and last check.
-
-The check uses the latest 100 releases, choosing the newest release asset for each filename, with at most 20 distinct patch assets and 10 sources. Assets are limited to 1 MB and require `packVersion` and GitHub's SHA-256 metadata. ZIPs and repository source files are not imported. Use a stable asset filename across revisions.
-
-Automatic checks update the library. Review a preview and choose **Update patches** to change the target app. Removing a source keeps downloaded packs and applied history. To replace a source-managed definition manually with different contents, remove that source first.
-
-## Updating applied patches
-
-Patchwork builds each new selection from the previous session's verified original backups, compares it with the currently applied files, and replaces the selected edits in one recoverable transaction. Patches no longer selected are removed as part of that update. Original fingerprints remain mandatory. History records the new applied version and marks the previous session **Superseded**; restore the current session to get the exact original files back.
-
-If an update fails or is interrupted before it commits, recovery restores the previous patch version. Outside edits, damaged backups, unfinished transactions and stale previews block updates. Keep the Patchwork data folder. Sessions from older versions can update using their existing originals; if they do not record patch IDs, select the desired patches again. Folders with multiple legacy applied sessions require those sessions to be restored first. Files patched without Patchwork history need valid originals.
-
-This updates patches for the supported target version. Installing a new Proton version still needs a pack matching that version; changing a label does not make an incompatible app supported.
-
-## Patcher app updates
-
-In **Settings → Patchwork app updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts. Stable is the default channel. Enable **Include prerelease app updates (experimental)** to check published prereleases too. The option persists and keeps the same digest/size checks. Patchwork 0.6.1 and earlier need this first prerelease installer downloaded once; they cannot discover prerelease app updates. Offline or rate-limit failures leave the app usable.
-
-When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. Setup releases the inherited working folder and waits for the old app process to exit before replacing files. A custom recognized installation is updated in place. If the app remains open for 30 seconds, setup asks you to close it and retry; it never terminates the process. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files, sources and history remain in your separate data folder. Patch sources update independently from patcher releases.
-
-Version 0.4.1 fixed the Windows “process is being used” update error. Current setup also handles the working-folder lock when launched by older Patchwork versions. If an older setup is still open after an error, close it and run the latest `Patchwork-Setup.exe` from the release page. Version 0.5.0 uses Windows native HTTPS with the default Windows proxy and normal certificate validation for source and app downloads.
-
-## Backups and recovery
-
-Backups, history, imported files, sources, update downloads, and preferences live in `%LOCALAPPDATA%\Patchwork\Data`. Updating/uninstalling Patchwork preserves this data and does not undo target patches. Restore targets before uninstalling if you want their original state.
-
-Apply rechecks fingerprints, saves durable originals/journals, replaces files atomically one at a time, and verifies results. Failures trigger rollback; interrupted sessions can recover from History. Restore refuses outside changes. Ordinary text/managed targets retain the 8 MB limit; ASAR archives may be at most 64 MB, with edited text members limited to 8 MB. Network shares, symlinks/junctions and mixed native/managed assemblies are unsupported. New target-app releases need matching new patch files. Apply, update and restore require a recognized Blitz or Proton client in the selected folder to be closed.
-
-Plain `.js` text replacements support files up to 16 MiB. JavaScript is executable client code; inspect the preview and trust the patch source. Patchwork treats it as text data and does not execute it.
-
-## Color options (0.6.0)
-
-Selected appearance patches can expose color fields and a **Choose…** color picker. Colors use #RRGGBB. Preferences persist separately from imported patch definitions, so source updates retain them. Preview embeds the selected colors in the generated resources; apply, elevated worker requests and history keep the exact choices. Changing colors and previewing an already-patched app updates it directly from verified originals. Invalid or incomplete colors block preview.
-
-## Patch files
-
-The library and patch cards show the imported pack version and individual patch versions, separately from the target app version. Preview includes the pack version. History records the versions actually applied and the imported file's SHA-256, so importing a newer definition never relabels an older session. Legacy files and sessions without version metadata show **Unversioned**. Version labels are author declarations; exact original fingerprints still decide compatibility.
-
-See [PATCH-FORMAT.md](PATCH-FORMAT.md). Most operations are declarative. Version 0.7.0 also accepts explicitly declared, hash-verified managed client modules. The library identifies these as executable code and the preview shows their SHA-256. Importing, previewing and applying only validate/embed the module; it runs later inside the target app. A hash establishes integrity, not trust or a sandbox: review the author's source before applying client code. App behavior and server entitlements remain subject to the target app's implementation. Shell commands and download operations are unsupported.
-
-Version 0.8.0 adds `asarTextReplace`, including exact original archive/member fingerprints and exact match counts. Rebuilds preserve untouched packed contents and unpacked/link metadata, update offsets and edited-member integrity hashes, and verify the result without extracting into the installation folder. JavaScript changes are identified as executable client code and shown by member in preview. Archive edits use the existing backup, update, recovery and byte-exact restore transactions. Apps enforcing an embedded signed ASAR header may require additional vendor support; this operation does not change executable fuses or signatures.
-
-Version 0.8.2 adds `asarChecksum` for an exact-fingerprinted `.dat` companion file up to 16 MiB. It verifies the original archive/footer pair and updates only a four-byte XXH32 footer from the fully rebuilt archive. The preview shows both checksum values; backups, rollback, updates and restore cover both files. Blitz 1.0.0 missed this native checksum and is superseded by 1.1.0. Update Patchwork first, check the patch source, then preview and update the applied Blitz patches with Blitz closed; verified older history supports a direct upgrade.
-
-Version 0.4.2 added conditional boolean setter overrides for patch packs that need to change selected rows while preserving the other rows' restrictions. Proton pack 1.2.0 requires this operation. Patch packs remain separate downloads.
-
-## Build and test
-
-No SDK or NuGet download is required; use the Windows .NET Framework 4.x compiler. Mono.Cecil and its license are included in `source/lib`; see [THIRD-PARTY.md](THIRD-PARTY.md).
-
-```powershell
-& .\source\build.ps1 -OutputDirectory .\build
-& .\source\build.ps1 -OutputDirectory .\build-tests -Console -Tests
-& .\build-tests\Patchwork.exe --self-test --data-dir .\test-data
-& .\source\installer\build-installer.ps1 -WorkDirectory .\build-setup -OutputFile .\Patchwork-Setup.exe
-```
-
-Self-test fixtures compile only with `-Tests` and are excluded from the installer. Production builds contain no demo recipes or Proton patch definitions. The installer contains only the app, Mono.Cecil, and guides. `--data-dir PATH` isolates testing. `--import-patch FILE` imports the same external file as the GUI and then opens the app.
-
-These commands build your checked-out source. Check out `ui-1.1.0` or `v1.1.0` for the current UI and community capabilities. Default-branch source remains stable 0.9.3 and rejects bundles requiring 1.0.0.
-
-See [UI-VALIDATION.md](docs/UI-VALIDATION.md) for 1.1.0 UI checks and [VALIDATION.md](VALIDATION.md) for earlier evidence and limits. Patchwork is independent of Proton and Morphe.
-
-Version 0.7.0 adds the managed client hooks needed by the separate Proton guest candidate. The installer still includes no patches or guest client code. Custom colors, promotional controls and direct patch upgrades are retained. The separate pack removes AMOLED and can remove its previous edits during an update. See the separate patch repository for guest validation and outstanding connection tests.
-
-Appearance preferences live in `appearance.json` in the Patchwork data folder. They change only Patchwork’s interface; patch pack color options remain separate. Missing or invalid appearance preferences use Dark/Violet. Select experimental app versions in Settings to discover 1.1.0 through the updater.
+[GPL-2.0-only](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).

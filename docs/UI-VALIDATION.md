@@ -1,6 +1,6 @@
 # Patchwork 1.1.0 UI validation
 
-Date: 2026-10-11. Windows x64 / .NET Framework 4.8. Release channel: prerelease; stable latest remains 0.9.3.
+Date: 2026-10-11. Windows x64 / .NET Framework 4.8. Validated initially as a prerelease. At the user's request, v1.1.0 was subsequently promoted to stable/latest with its existing assets unchanged.
 
 The final test build passed **55 scenarios with 0 failures**, including **65 assertions against actual WPF controllers/windows**. Existing managed, resource, archive, source, updater, transaction, worker, recovery and responsiveness checks remain included.
 
