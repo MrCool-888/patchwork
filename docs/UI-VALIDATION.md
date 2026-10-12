@@ -13,3 +13,5 @@ Real-window tests cover actionable missing-folder/empty-selection guidance, visi
 Off-screen WPF renders were visually reviewed for the welcome screen, imported Proton pack, compact selection screen, generic two-file preview and light Settings screen. The compact review action is pinned; preview paging and apply/back actions use separate rows. Renders use 96-DPI capture. Live screen-reader, high-DPI/multiple-monitor and real UAC-dialog interaction are not automated.
 
 The patch engine/schema and pack minimum versions remain unchanged from 1.0.0. Community operations still require `minimumPatcherVersion: "1.0.0"`. Existing pack assets are not republished or altered by this UI release. No installed target app was patched during UI testing.
+
+All five published community examples passed against the 1.1.0 production build: 15 CLI version/selection combinations and apply/update/deselection/exact-restore lifecycles. The optional Java runtime check was skipped in this run because it was unavailable or did not return; Java verification from 1.0.0 is not claimed as a new 1.1.0 run.
