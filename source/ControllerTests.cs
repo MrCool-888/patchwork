@@ -30,6 +30,7 @@ namespace Patchwork
             TransactionLockDoesNotBlockBundleSelection(root);
             PreviewControlsPageLargeFiles(root);
             AppearanceAndGuidance(root);
+            AddedFilePreviewLabels(root);
             Console.WriteLine("Controller regression checks: " + assertions + " assertions passed.");
         }
 
@@ -384,6 +385,25 @@ namespace Patchwork
                 fixture.Control<Button>("EmptySourcesButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert(Field<string>(fixture.Controller, "page") == "sources" && fixture.Control<TextBox>("SourceLinkBox").Text == "https://github.com/MrCool-888/patchwork-patches", "Getting started did not prefill the community source.");
                 Assert(Field<PatchSourceStore>(fixture.Controller, "patchSources").Sources.Count == 0, "Getting-started navigation imported packs without pressing Add.");
+            }
+        }
+
+        static void AddedFilePreviewLabels(string root)
+        {
+            using (var fixture = new Fixture(root, "added-file-label"))
+            {
+                fixture.Load(); fixture.Ready();
+                var raw = Json.Parse(Field<PatchBundle>(fixture.Controller, "current").Content);
+                raw["minimumPatcherVersion"] = "1.0.0";
+                byte[] added = Encoding.UTF8.GetBytes("new resource");
+                Json.Object(Json.Array(raw, "patches")[0])["operations"] = new[] { new Dictionary<string, object> {
+                    { "kind", "fileAdd" }, { "file", "added.txt" }, { "dataBase64", Convert.ToBase64String(added) }, { "resultSha256", PatchEngine.Hash(added) } } };
+                string recipe = Path.Combine(fixture.Root, "added.json"); File.WriteAllText(recipe, Json.Pretty(raw));
+                fixture.Controller.ImportFile(recipe); fixture.Ready();
+                Field<HashSet<string>>(fixture.Controller, "selected").Add("midnight-theme"); Call(fixture.Controller, "UpdateSession");
+                PumpTask((Task)Call(fixture.Controller, "BuildPreview"));
+                Assert(fixture.Control<TextBlock>("BeforeLabel").Text == "Before · file absent", "The initial preview mislabeled a new file as an original file.");
+                Assert(!File.Exists(Path.Combine(fixture.Target, "added.txt")) && fixture.Control<TextBlock>("AfterLabel").Text == "After applying", "The added-file review wrote a file or displayed the wrong result state.");
             }
         }
 

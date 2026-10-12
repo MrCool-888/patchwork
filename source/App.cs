@@ -274,7 +274,7 @@ namespace Patchwork
                 check.VerticalAlignment = VerticalAlignment.Top; grid.Children.Add(check);
                 var content = new StackPanel(); Grid.SetColumn(content, 1);
                 var headline = new Grid(); headline.ColumnDefinitions.Add(new ColumnDefinition()); headline.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var title = Text(patch.Name, 14, "#E8EDF6"); title.FontWeight = FontWeights.SemiBold; title.Margin = new Thickness(0, 0, 8, 0); headline.Children.Add(title);
+                var title = Text(patch.Name, 14, "#E8EDF6"); title.ToolTip = "Patch version " + VersionLabel(patch.Version); title.FontWeight = FontWeights.SemiBold; title.Margin = new Thickness(0, 0, 8, 0); headline.Children.Add(title);
                 var category = Text(patch.Ready ? patch.Category : "Planned", 11, patch.Ready ? "#8EDCC5" : "#A698BD"); category.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(category, 1); category.Margin = new Thickness(12, 0, 0, 0); headline.Children.Add(category);
                 content.Children.Add(headline);
                 var description = Text(patch.Description, 12, "#929DB1"); description.Margin = new Thickness(0, 7, 0, 0); description.LineHeight = 18; content.Children.Add(description);
@@ -375,7 +375,6 @@ namespace Patchwork
                 Control<TextBlock>("PreviewSummary").Text = preview.PatchNames.Count + " patch(es) · " + preview.Files.Count + " file(s) · " + preview.AppName + " " + preview.AppVersion + " · Pack " + VersionLabel(preview.PackVersion) + "\n" + preview.TargetRoot;
                 Control<Button>("ApplyButton").IsEnabled = true;
                 bool updating = preview.PreviousJournalId != null;
-                Control<TextBlock>("BeforeLabel").Text = updating ? "Before · currently applied" : "Before · original";
                 Control<Button>("ApplyButton").Content = (updating ? "Update patches" : "Apply patches") + (Worker.Protected(preview.TargetRoot) ? " · administrator" : "");
                 if (updating) Control<TextBlock>("PreviewSummary").Text += "\nUpdates the current selection using your verified original backups.";
                 ShowPage("preview"); Notify(updating ? "Update preview verified. Review the current and updated content, then update patches." : "Preview verified. Review the original and patched content, then apply.");
