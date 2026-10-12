@@ -2,6 +2,8 @@
 
 Project license: **GPL-2.0-only**. See [LICENSE](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md).
 
+Patchwork **1.1.0 prerelease** brings a clearer setup flow, simpler patch cards, a review action that stays visible in compact windows, and a dedicated **Settings** page. Choose **Dark** or **Light** and a **Violet**, **Blue**, **Mint**, or **Amber** accent; appearance updates immediately and is remembered. Existing packs, selections, previews and backups continue to work. See [UI validation](docs/UI-VALIDATION.md). The prerelease source is on `ui-1.1.0` / `v1.1.0`; stable latest remains 0.9.3.
+
 Keeps the interface responsive during preview generation, target verification, and history loading. Full before/after previews use paired 32,768-character pages with Previous/Next controls; Unicode surrogate pairs stay together. Preview, apply, and restore display a working indicator and phase text. Existing patch formats, fingerprints, backups, direct updates, and byte-exact restoration remain compatible. [Lunar Client 0.1.6](https://github.com/MrCool-888/patchwork-patches/releases/tag/lunar-client-0.1.6) patch files need no changes. This installer includes no patch packs or Lunar binaries.
 
 An installable Windows patch manager with separate patch-file imports, automatically updated GitHub patch sources, previews, verified backups, direct patch upgrades, restore, and a GitHub release updater. **The app and installer include no patch packs.**
@@ -20,12 +22,12 @@ Patchwork 1.0.0 is the prerelease with bounded edits for ordinary files, ZIP-fam
 
 Download `Patchwork-Setup.exe` from the patcher releases. Setup installs for the current Windows user to `%LOCALAPPDATA%\Programs\Patchwork`, adds Start menu shortcuts and an Installed Apps entry, and offers a desktop shortcut. Setup itself needs no administrator rights. Windows 10/11 x64 and .NET Framework 4.8 are required. This is an unsigned development build.
 
-1. Open Patchwork. A new installation starts with an empty library.
-2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add source**. The current Lunar 0.1.6 and combined Blitz/Proton r3 releases are stable assets, so the prerelease patch option is not required. Alternatively, choose **Add patch file** to import a separate `.json` or `.patchwork` file.
-3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Browse** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
-4. Select patches, set any color options, and choose **Preview changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
+1. Open Patchwork. Choose **Find community patches** to prefill the community repository on Patch sources, or **Open patch file** for a downloaded pack. A fresh installation contains no packs.
+2. Choose **Patch sources**, paste `https://github.com/MrCool-888/patchwork-patches`, and choose **Add & download packs**. The current Lunar 0.1.6 and combined Blitz/Proton r3 releases are stable assets, so the prerelease patch option is not required. Alternatively, choose **Open patch file** to import a separate `.json` or `.patchwork` file.
+3. Proton and Blitz install folders are detected automatically when no folder is already selected. Blitz checks `%LOCALAPPDATA%\Programs\Blitz`, then `Blitz` under Program Files and Program Files (x86), requiring both `Blitz.exe` and `resources/app.asar`. Use **Choose folder…** for a custom location. Compatibility requires exact original SHA-256 fingerprints, not just a matching version number.
+4. Select patches, set any color options, and choose **Review changes**. Review the before/after content, archive members or assembly methods. Importing and previewing do not change target files.
 5. Close the target application and choose **Apply patches**. Protected folders use a Windows administrator prompt for the apply helper.
-6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **History & restore** still restores the original files when you want to remove the patches.
+6. When a newer pack is imported, preview and choose **Update patches**. An already-patched app with verified Patchwork history updates directly; no manual restore is needed. **Backups & restore** still restores the original files when you want to remove the patches.
 
 ## GitHub patch sources
 
@@ -47,7 +49,7 @@ This updates patches for the supported target version. Installing a new Proton v
 
 ## Patcher app updates
 
-In **About this build → App updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts. Stable is the default channel. Enable **Include prerelease app updates (experimental)** to check published prereleases too. The option persists and keeps the same digest/size checks. Patchwork 0.6.1 and earlier need this first prerelease installer downloaded once; they cannot discover prerelease app updates. Offline or rate-limit failures leave the app usable.
+In **Settings → Patchwork app updates**, choose **Check for updates**. Patchwork also checks once when it opens; turn off that behavior using the checkbox. Checks use the public GitHub latest-release API for `MrCool-888/patchwork`, require no GitHub login, and exclude drafts. Stable is the default channel. Enable **Include prerelease app updates (experimental)** to check published prereleases too. The option persists and keeps the same digest/size checks. Patchwork 0.6.1 and earlier need this first prerelease installer downloaded once; they cannot discover prerelease app updates. Offline or rate-limit failures leave the app usable.
 
 When a newer version is available, **Download and install** fetches the release's `Patchwork-Setup.exe`, verifies its exact size and GitHub SHA-256 digest, opens setup, and closes Patchwork. Complete the installer to update. Setup releases the inherited working folder and waits for the old app process to exit before replacing files. A custom recognized installation is updated in place. If the app remains open for 30 seconds, setup asks you to close it and retry; it never terminates the process. This is a checksum check against GitHub metadata, not a publisher code signature. No installer runs automatically. Imported patch files, sources and history remain in your separate data folder. Patch sources update independently from patcher releases.
 
@@ -92,6 +94,8 @@ Self-test fixtures compile only with `-Tests` and are excluded from the installe
 
 These build commands use the source checked out in your working tree. To build the 1.0.0 prerelease that supports the new community operations, check out `community-patches` (or `v1.0.0` after that release tag is published) before building. A stable 0.9.3 build rejects bundles requiring 1.0.0.
 
-See [VALIDATION.md](VALIDATION.md) for evidence and limits. Patchwork is independent of Proton and Morphe.
+See [UI-VALIDATION.md](docs/UI-VALIDATION.md) for 1.1.0 UI checks and [VALIDATION.md](VALIDATION.md) for earlier evidence and limits. Patchwork is independent of Proton and Morphe.
 
 Version 0.7.0 adds the managed client hooks needed by the separate Proton guest candidate. The installer still includes no patches or guest client code. Custom colors, promotional controls and direct patch upgrades are retained. The separate pack removes AMOLED and can remove its previous edits during an update. See the separate patch repository for guest validation and outstanding connection tests.
+
+Appearance preferences live in `appearance.json` in the Patchwork data folder. They change only Patchwork’s interface; patch pack color options remain separate. Missing or invalid appearance preferences use Dark/Violet. Select experimental app versions in Settings to discover 1.1.0 through the updater.

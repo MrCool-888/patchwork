@@ -29,6 +29,7 @@ namespace Patchwork
             RestoreUsesControllerAndProtectsBusyWindow(root);
             TransactionLockDoesNotBlockBundleSelection(root);
             PreviewControlsPageLargeFiles(root);
+            AppearanceAndGuidance(root);
             Console.WriteLine("Controller regression checks: " + assertions + " assertions passed.");
         }
 
@@ -147,7 +148,7 @@ namespace Patchwork
                     latestRelease.Set(); PumpTask(inspection); fixture.Ready(); timer.Stop();
                     Assert(jobs <= 2, "Target changes queued more than the running and latest inspections.");
                     Assert(jobs == 2, "The latest target inspection was not run after the in-flight result.");
-                    Assert(fixture.Control<TextBlock>("TargetStatus").Text.Contains("Version fingerprint mismatch"), "The latest target result did not replace the stale result.");
+                    Assert(fixture.Control<TextBlock>("TargetStatus").Text.Contains("does not match the app version"), "The latest target result did not replace the stale result.");
                 }
                 finally { release.Set(); latestRelease.Set(); timer.Stop(); fixture.Controller.InspectionGateForTest = null; fixture.Close(); }
             }
@@ -342,6 +343,47 @@ namespace Patchwork
                     fixture.Close();
                 }
                 fixture.Ready();
+            }
+        }
+
+        static void AppearanceAndGuidance(string root)
+        {
+            using (var fixture = new Fixture(root, "appearance"))
+            {
+                fixture.Load(); fixture.Ready();
+                var selected = Field<HashSet<string>>(fixture.Controller, "selected");
+                var targets = Field<Dictionary<string, string>>(fixture.Controller, "targets");
+                string[] selection = selected.ToArray(); string target = targets["sandbox-v1"];
+                PumpTask((Task)Call(fixture.Controller, "BuildPreview"));
+                var preview = Field<PatchPlan>(fixture.Controller, "preview");
+                var appearance = Field<UiAppearance>(fixture.Controller, "appearance");
+                var background = appearance.Semantic("UiSurface");
+                foreach (string theme in UiAppearance.Themes)
+                    foreach (string accent in UiAppearance.Accents)
+                    {
+                        fixture.Control<ComboBox>("ThemePicker").SelectedItem = theme;
+                        fixture.Control<ComboBox>("AccentPicker").SelectedItem = accent;
+                        fixture.Window.UpdateLayout();
+                        Assert(!background.IsFrozen && Object.ReferenceEquals(background, appearance.Semantic("UiSurface")), "Actual WPF styles froze or replaced live theme brushes.");
+                        Assert(appearance.Theme == theme && appearance.Accent == accent, "Appearance controls did not apply their values.");
+                    }
+                Assert(Field<PatchPlan>(fixture.Controller, "preview") == preview && selected.SetEquals(selection) && targets["sandbox-v1"] == target, "Changing app appearance invalidated a preview, selection or target.");
+                var saved = UiAppearance.LoadPreferences(fixture.Data);
+                Assert(saved[0] == "Light" && saved[1] == "Amber", "Actual appearance controls did not save preferences.");
+                Call(fixture.Controller, "ShowPage", "library");
+                fixture.Window.Width = fixture.Window.MinWidth; fixture.Window.Height = fixture.Window.MinHeight; fixture.Window.UpdateLayout();
+                DependencyObject parent = fixture.Control<Button>("BrowseButton");
+                while (!(parent is ScrollViewer)) parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
+                var folderArea = (ScrollViewer)parent;
+                var folderBounds = fixture.Control<Button>("BrowseButton").TransformToAncestor(folderArea).TransformBounds(new Rect(new Point(), fixture.Control<Button>("BrowseButton").RenderSize));
+                Assert(folderBounds.Top >= 0 && folderBounds.Bottom <= folderArea.ActualHeight + 1 && fixture.Control<Button>("PreviewButton").ActualHeight > 30, "Compact layout hid the folder or review action.");
+                selected.Clear(); Call(fixture.Controller, "UpdateSession");
+                Assert(!fixture.Control<Button>("PreviewButton").IsEnabled && fixture.Control<TextBlock>("NextStepText").Text.Contains("Select patches"), "Empty selection guidance was missing.");
+                targets["sandbox-v1"] = ""; Call(fixture.Controller, "UpdateSession");
+                Assert(fixture.Control<TextBlock>("NextStepText").Text.Contains("Choose the app folder"), "Missing-folder guidance was not actionable.");
+                fixture.Control<Button>("EmptySourcesButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert(Field<string>(fixture.Controller, "page") == "sources" && fixture.Control<TextBox>("SourceLinkBox").Text == "https://github.com/MrCool-888/patchwork-patches", "Getting started did not prefill the community source.");
+                Assert(Field<PatchSourceStore>(fixture.Controller, "patchSources").Sources.Count == 0, "Getting-started navigation imported packs without pressing Add.");
             }
         }
 

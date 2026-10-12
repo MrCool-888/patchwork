@@ -131,12 +131,12 @@ namespace Patchwork
                     ControllerTests.PumpTask((System.Threading.Tasks.Task)typeof(MainController).GetField("sessionTask", flags).GetValue(controller));
                     ((Button)window.FindName("SourcesNav")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     Assert(((Grid)window.FindName("SourcesPage")).Visibility == Visibility.Visible && ((StackPanel)window.FindName("SourcesList")).Children.Count == 1);
-                    Assert(((CheckBox)window.FindName("SourcePrereleases")).IsChecked == true && ((Button)window.FindName("CheckSourcesButton")).IsEnabled);
-                    Assert(((TextBlock)window.FindName("SessionDescription")).Text.Contains(Repo));
+                    Assert(((CheckBox)window.FindName("SourcePrereleases")).IsChecked == false && ((Button)window.FindName("CheckSourcesButton")).IsEnabled);
+                    Assert(((TextBlock)window.FindName("AppMeta")).Text.Contains(Repo));
                     Assert(((TextBlock)window.FindName("SelectedCount")).Text == "1 patch");
                     Assert(((TextBlock)window.FindName("TargetStatus")).Text.Contains("no manual restore needed"));
                     ControllerTests.PumpTask((System.Threading.Tasks.Task)typeof(MainController).GetMethod("BuildPreview", flags).Invoke(controller, null));
-                    Assert(((TextBlock)window.FindName("BeforeLabel")).Text == "CURRENTLY APPLIED");
+                    Assert(((TextBlock)window.FindName("BeforeLabel")).Text == "Before · currently applied");
                     Assert(((Button)window.FindName("ApplyButton")).Content.ToString() == "Update patches");
                     Assert(engine.History().Count == 1 && File.ReadAllText(Path.Combine(target, "settings.json")).Contains("midnight"));
                 }

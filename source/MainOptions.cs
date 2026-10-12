@@ -31,14 +31,14 @@ namespace Patchwork
             {
                 string key = current.Id + "|" + patch.Id + "." + option.Id;
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
-                var label = Text(option.Label, 12, "#C2CBDC"); label.Width = 116; label.VerticalAlignment = VerticalAlignment.Center;
+                var label = Text(option.Label, 12, "#E8EDF6"); label.Width = 116; label.VerticalAlignment = VerticalAlignment.Center;
                 var input = new TextBox { Text = OptionValue(patch, option), Width = 105, MaxLength = 7, ToolTip = "Color in #RRGGBB format" };
-                var swatch = new Border { Background = Color(option.Default), Width = 22, Height = 22, CornerRadius = new CornerRadius(5), Margin = new Thickness(10, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
-                try { swatch.Background = Color(ThemeOptions.Color(input.Text)); } catch (InvalidDataException) { }
+                var swatch = new Border { Background = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(option.Default), Width = 22, Height = 22, CornerRadius = new CornerRadius(5), Margin = new Thickness(10, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
+                try { swatch.Background = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(ThemeOptions.Color(input.Text)); } catch (InvalidDataException) { }
                 var choose = new Button { Content = "Choose…", Padding = new Thickness(8, 4, 8, 4) };
                 input.TextChanged += delegate {
                     preview = null; colorOptions[key] = input.Text;
-                    try { string value = ThemeOptions.Color(input.Text); swatch.Background = Color(value); input.ToolTip = "Color in #RRGGBB format"; var valid = colorOptions.Where(x => System.Text.RegularExpressions.Regex.IsMatch(x.Value ?? "", "^#[0-9a-fA-F]{6}\\z")).ToDictionary(x => x.Key, x => x.Value); File.WriteAllText(Path.Combine(engine.DataRoot, "patch-options.json"), Json.Pretty(valid), new UTF8Encoding(false)); }
+                    try { string value = ThemeOptions.Color(input.Text); swatch.Background = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(value); input.ToolTip = "Color in #RRGGBB format"; var valid = colorOptions.Where(x => System.Text.RegularExpressions.Regex.IsMatch(x.Value ?? "", "^#[0-9a-fA-F]{6}\\z")).ToDictionary(x => x.Key, x => x.Value); File.WriteAllText(Path.Combine(engine.DataRoot, "patch-options.json"), Json.Pretty(valid), new UTF8Encoding(false)); }
                     catch (InvalidDataException) { input.ToolTip = "Enter a complete color such as #8A66FF before previewing."; }
                     catch (Exception error) { Notify("Could not save color: " + error.Message, true); }
                 };

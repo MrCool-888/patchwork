@@ -33,6 +33,8 @@ namespace Patchwork
                 return;
             }
             var file = CurrentPreviewFile(); var page = PreviewPaging.GetPage(file.BeforeText, file.AfterText, previewPageIndex);
+            Control<TextBlock>("BeforeLabel").Text = !file.BeforeExists ? "Before · file absent" : preview.PreviousJournalId != null ? "Before · currently applied" : "Before · original";
+            Control<TextBlock>("AfterLabel").Text = file.AfterExists ? "After applying" : "After · file removed";
             before.Text = page.Before; after.Text = page.After;
             Control<TextBlock>("PreviewPageLabel").Text = "Page " + (page.Index + 1) + " of " + page.Count;
             previous.IsEnabled = page.Index > 0; next.IsEnabled = page.Index + 1 < page.Count;

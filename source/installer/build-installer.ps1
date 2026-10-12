@@ -25,11 +25,12 @@ Copy-Item -LiteralPath (Join-Path $taskProduct 'THIRD-PARTY.md') -Destination (J
 Copy-Item -LiteralPath (Join-Path $taskProduct 'LICENSE') -Destination (Join-Path $taskPayload 'LICENSE')
 New-Item -ItemType Directory -Path (Join-Path $taskPayload 'docs') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $taskProduct 'docs\AUTHORING.md') -Destination (Join-Path $taskPayload 'docs\AUTHORING.md')
+Copy-Item -LiteralPath (Join-Path $taskProduct 'docs\USER-GUIDE.md') -Destination (Join-Path $taskPayload 'docs\USER-GUIDE.md')
 $taskZip = Join-Path $WorkDirectory 'payload.zip'
 $taskStream = [IO.File]::Open($taskZip,[IO.FileMode]::Create,[IO.FileAccess]::Write)
 $taskArchive = [IO.Compression.ZipArchive]::new($taskStream,[IO.Compression.ZipArchiveMode]::Create)
 try {
-    foreach ($taskName in @('Patchwork.exe','Patchwork.exe.config','Mono.Cecil.dll','Mono.Cecil.LICENSE.txt','README.md','PATCH-FORMAT.md','THIRD-PARTY.md','LICENSE','docs/AUTHORING.md')) {
+    foreach ($taskName in @('Patchwork.exe','Patchwork.exe.config','Mono.Cecil.dll','Mono.Cecil.LICENSE.txt','README.md','PATCH-FORMAT.md','THIRD-PARTY.md','LICENSE','docs/AUTHORING.md','docs/USER-GUIDE.md')) {
         [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive,(Join-Path $taskPayload $taskName),$taskName,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
 } finally { $taskArchive.Dispose(); $taskStream.Dispose() }

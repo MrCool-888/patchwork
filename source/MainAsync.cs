@@ -39,7 +39,7 @@ namespace Patchwork
                 try
                 {
                     int count = await Task.Run(() => engine.History().Count(x => x.State == "Prepared" || x.State == "Restoring" || x.State == "RecoveryRequired"));
-                    if (!closed && !busy && count > 0) Notify(count + " unfinished transaction(s). Open History & restore to recover.", true);
+                    if (!closed && !busy && count > 0) Notify(count + " unfinished transaction(s). Open Backups & restore to recover.", true);
                 }
                 catch (Exception error) { if (!closed && !busy) Notify("Could not inspect recovery history: " + error.Message, true); }
             };
@@ -71,7 +71,7 @@ namespace Patchwork
         void QueueSessionInspection(PatchBundle bundle, string target)
         {
             pendingInspection = new Inspection { Bundle = bundle, Target = target, Revision = ++sessionRevision };
-            Control<TextBlock>("TargetStatus").Text = "Checking target fingerprints…";
+            Control<TextBlock>("TargetStatus").Text = "Checking app files…";
             StartSessionInspection();
         }
         void StartSessionInspection()
@@ -122,7 +122,7 @@ namespace Patchwork
                     bool added = group.Any(x => x.Kind == "fileAdd");
                     return added ? File.Exists(path) || Directory.Exists(path) : !File.Exists(path) || !PatchEngine.Hash(PatchEngine.Read(path, FileFormats.Limit(FileFormats.Kind(group.First()), group.Key))).Equals(group.First().Sha256, StringComparison.OrdinalIgnoreCase);
                 });
-                return new TargetResult { Match = match && !changed, Text = !match ? "Version fingerprint mismatch. Choose a compatible folder." : changed ? "Files differ and no matching applied session was found. Choose a compatible folder or recover its original files." : "Target fingerprints match. Ready to preview." };
+                return new TargetResult { Match = match && !changed, Text = !match ? "This folder does not match the app version required by this pack. Choose another folder or a matching pack." : changed ? "Files differ and no matching applied session was found. Choose a compatible folder or recover its original files." : "App files match this pack. You can review your selection." };
             }
             catch (Exception error) { return new TargetResult { Text = error.Message }; }
         }

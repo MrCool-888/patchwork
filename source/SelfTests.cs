@@ -206,6 +206,7 @@ namespace Patchwork
                 Assert(MainController.FindBlitzFolder(new[] { missing, system }) == system, "System installation was not detected.");
             });
             Test("Paged previews preserve complete content with bounded Unicode pages", () => PreviewPagingTests.Run());
+            Test("App themes preserve readable colors, live brushes and preferences", () => AppearanceTests.Run(root));
             Test("WPF controller keeps dispatcher responsive and rejects stale async results", () => ControllerTests.Run(root));
             string result = passed + " passed; " + failed + " failed.\r\n";
             Console.WriteLine(result); File.WriteAllText(Path.Combine(dataRoot, "test-results.txt"), result);

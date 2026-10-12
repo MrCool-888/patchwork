@@ -18,8 +18,7 @@ namespace Patchwork
             try { patchSources = new PatchSourceStore(engine.DataRoot); }
             catch (Exception error) { sourceLoadError = "Saved patch sources could not be read: " + error.Message; }
             Control<Button>("SourcesNav").Click += delegate { ShowPage("sources"); };
-            Control<Button>("SourcesButton").Click += delegate { ShowPage("sources"); };
-            Control<Button>("EmptySourcesButton").Click += delegate { ShowPage("sources"); };
+            Control<Button>("EmptySourcesButton").Click += delegate { ShowPage("sources"); if (String.IsNullOrWhiteSpace(Control<TextBox>("SourceLinkBox").Text)) Control<TextBox>("SourceLinkBox").Text = "https://github.com/MrCool-888/patchwork-patches"; Control<TextBox>("SourceLinkBox").Focus(); };
             Control<Button>("AddSourceButton").Click += async delegate { await AddSource(); };
             Control<Button>("CheckSourcesButton").Click += async delegate { await CheckSources(true, null); };
             sourceTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
@@ -71,7 +70,7 @@ namespace Patchwork
                 RenderSources();
                 string result = updated + " patch pack(s) updated" + (errors == 0 ? "." : "; " + errors + " source check(s) need attention.");
                 Control<TextBlock>("SourcesStatus").Text = result;
-                if (!busy && (manual || updated > 0)) Notify(result + (updated > 0 ? " Preview to update applied patches." : ""), errors > 0);
+                if (!busy && (manual || updated > 0)) Notify(result + (updated > 0 ? " Review and apply to update your app." : ""), errors > 0);
             }
             finally { checkingSources = false; if (!closed) { Control<Grid>("SourcesPage").IsEnabled = !busy; Control<Button>("ImportButton").IsEnabled = !busy; } }
         }
@@ -110,8 +109,8 @@ namespace Patchwork
                 var packs = Text(source.Packs.Count == 0 ? "No packs downloaded yet" : String.Join("  ·  ", source.Packs.Select(x => x.BundleId + " v" + x.Version)), 12, "#BEABD8"); packs.Margin = new Thickness(0, 9, 0, 0); stack.Children.Add(packs);
                 DateTime check; string last = DateTime.TryParse(source.LastCheckUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out check) ? check.ToLocalTime().ToString("MMM d · h:mm tt") : "Never";
                 var status = Text((source.Status ?? "") + "\nLast checked: " + last, 12, "#929DB1"); status.Margin = new Thickness(0, 10, 0, 14); stack.Children.Add(status);
-                var automatic = new CheckBox { Content = "Automatically update this source", IsChecked = source.Automatic, Margin = new Thickness(0, 0, 0, 10), FontSize = 12 };
-                var prereleases = new CheckBox { Content = "Include pre-release patch packs (experimental)", IsChecked = source.IncludePrereleases, Margin = new Thickness(0, 0, 0, 16), FontSize = 12 };
+                var automatic = new CheckBox { Content = "Check for new packs automatically", IsChecked = source.Automatic, Margin = new Thickness(0, 0, 0, 10), FontSize = 12 };
+                var prereleases = new CheckBox { Content = "Include experimental patch packs", IsChecked = source.IncludePrereleases, Margin = new Thickness(0, 0, 0, 16), FontSize = 12 };
                 RoutedEventHandler options = delegate { try { patchSources.Options(source.Repository, automatic.IsChecked == true, prereleases.IsChecked == true); } catch (Exception error) { Notify(error.Message, true); RenderSources(); } };
                 automatic.Click += options; prereleases.Click += options; stack.Children.Add(automatic); stack.Children.Add(prereleases);
                 var buttons = new WrapPanel();
